@@ -1,0 +1,85 @@
+name: Multi-Platform Build and Package
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        # Define OS and architecture combinations
+        goos: [linux, windows]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: windows
+            goarch: arm64  # Windows ARM64 is less common
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.20'
+
+    - name: Build
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      run: |
+        mkdir -p bin
+        go build -v -o "bin/gobot-${{ matrix.goos }}-${{ matrix.goarch }}" ./...
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: binaries
+        path: bin/
+
+  debian-package:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download Linux AMD64 binary
+      uses: actions/download-artifact@v3
+      with:
+        name: binaries
+        path: bin/
+
+    - name: Create DEB package
+      run: |
+        mkdir -p debian/usr/local/bin
+        cp bin/gobot-linux-amd64 debian/usr/local/bin/gobot
+        dpkg-deb --build debian
+        mv debian.deb gobot.deb
+
+    - name: Upload DEB package
+      uses: actions/upload-artifact@v3
+      with:
+        name: deb-package
+        path: gobot.deb
+
+  arch-build:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Go
+      run: |
+        pacman -Sy --noconfirm go
+
+    - name: Build for Arch Linux
+      run: |
+        go build -o gobot-arch .
+
+    - name: Upload Arch binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: arch-binaries
+        path: gobot-arch

@@ -3,6 +3,7 @@
 GOBOT is a discord bot built fully using Go (As a learning project) that has some nice time saving features and integrations with APIs such as WE Egypt
 to grab your quota details (more providers to be added soon), Currency exchange rate scraper (Currently only USD to EGP), Bitcoin prices and some basic
 economy features.
+
 ---
 
 ## Features

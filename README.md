@@ -23,7 +23,7 @@ economy features.
 - **BTC Price**: `.btc`
 - **Internet Quota**: `/quota` (requires `/setup <landline> <password>`)
 
-note: if you're only here for the WE Api, run the test.go folder in the QCheckWE directory.
+### **note: if you're only here for the WE Api, run the test.go folder in the QCheckWE directory.**
 
 ---
 

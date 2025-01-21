@@ -59,12 +59,11 @@ go run main.go
 | Command                     | Description                          |
 |-----------------------------|--------------------------------------|
 | `.bal`                      | Check your balance                   |
-| `.daily`                    | Claim daily coins                    |
 | `.work`                     | Earn coins (6h cooldown)             |
 | `.flip <amount / all>`      | Gamble coins: (specified amount / all)|
 | `.transfer <@user> <amount>`| Send coins to another user           |
 | `.add <@user> <amount>`     | Admin: Add coins to a user           |
-| `.promote <@user>`          | Admin: Promote a user to admin       |
+| `.sa <@user>`               | Admin: Promote a user to admin       |
 | `.usd [amount]`             | USD to EGP exchange rate             |
 | `.btc`                      | Bitcoin price in USD                 |
 | `/quota`                    | Check internet quota (after setup)   |

@@ -1,7 +1,8 @@
-# Discord Bot - Feature-Rich Economy and Utility Bot
+# GOBOT - a simple multi-utility discord bot built using Go
 
-This Discord bot provides an economy system, utility commands, and admin tools. It uses PostgreSQL and integrates with external APIs.
-
+GOBOT is a discord bot built fully using Go (As a learning project) that has some nice time saving features and integrations with APIs such as WE Egypt
+to grab your quota details (more providers to be added soon), Currency exchange rate scraper (Currently only USD to EGP), Bitcoin prices and some basic
+economy features.
 ---
 
 ## Features
@@ -20,6 +21,8 @@ This Discord bot provides an economy system, utility commands, and admin tools. 
 - **USD to EGP**: `.usd [amount]`
 - **BTC Price**: `.btc`
 - **Internet Quota**: `/quota` (requires `/setup <landline> <password>`)
+
+note: if you're only here for the WE Api, run the test.go folder in the QCheckWE directory.
 
 ---
 

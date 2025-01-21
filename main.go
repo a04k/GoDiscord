@@ -117,7 +117,6 @@ func getUSDEGP() (float64, error) {
 	url := "https://www.google.com/finance/quote/USD-EGP"
 
 	// Fetch the HTML content
-
 	resp, err := http.Get(url)
 	if err != nil {
 		return 0, fmt.Errorf("failed to fetch URL: %v", err)
@@ -406,164 +405,6 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("You lost %d coins! Your new balance is %d.", amount, balance-amount))
 		}
 
-	case "setadmin":
-		if len(args) < 2 {
-			s.ChannelMessageSend(m.ChannelID, "Usage: .sa <@user>")
-			return
-		}
-
-		// Check if the user is an admin
-		var isAdmin bool
-		err := b.db.QueryRow("SELECT is_admin FROM users WHERE user_id = $1", m.Author.ID).Scan(&isAdmin)
-		if err != nil || !isAdmin {
-			s.ChannelMessageSend(m.ChannelID, "You are not authorized to use this command.")
-			return
-		}
-
-		recipient := strings.TrimPrefix(strings.TrimSuffix(args[1], ">"), "<@")
-
-		// Promote the user to admin
-		_, err = b.db.Exec("UPDATE users SET is_admin = TRUE WHERE user_id = $1", recipient)
-		if err != nil {
-			log.Printf("Error promoting user: %v", err)
-			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-			return
-		}
-
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Promoted <@%s> to admin.", recipient))
-
-	//ADMIN ONLY
-	case "take":
-		if len(args) < 3 {
-			s.ChannelMessageSend(m.ChannelID, "Usage: .take <@user> <amount>")
-			return
-		}
-
-		// Check if the user is an admin
-		isAdmin, err := b.isAdmin(m.Author.ID)
-		if err != nil {
-			log.Printf("Error checking admin status: %v", err)
-			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-			return
-		}
-		if !isAdmin {
-			s.ChannelMessageSend(m.ChannelID, "You are not authorized to use this command.")
-			return
-		}
-
-		// Extract and validate the recipient mention
-		recipientMention := args[1]
-		recipientID, err := extractUserID(recipientMention)
-		if err != nil {
-			s.ChannelMessageSend(m.ChannelID, "Invalid mention. Please use a proper mention (e.g., @username).")
-			return
-		}
-
-		// Check if the recipient exists
-		exists, err := userExists(s, recipientID)
-		if err != nil {
-			log.Printf("Error checking user existence: %v", err)
-			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-			return
-		}
-		if !exists {
-			s.ChannelMessageSend(m.ChannelID, "User not found. Please check the mention.")
-			return
-		}
-
-		// Extract the amount
-		amount := 0
-		fmt.Sscanf(args[2], "%d", &amount)
-
-		// Validate amount
-		if amount <= 0 {
-			s.ChannelMessageSend(m.ChannelID, "Amount must be greater than 0.")
-			return
-		}
-
-		// Get recipient's balance
-		var recipientBalance int
-		err = b.db.QueryRow("SELECT balance FROM users WHERE user_id = $1", recipientID).Scan(&recipientBalance)
-		if err != nil {
-			log.Printf("Error querying recipient balance: %v", err)
-			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-			return
-		}
-
-		// Check if user has enough coins
-		if recipientBalance < amount {
-			s.ChannelMessageSend(m.ChannelID, "User does not have enough coins")
-			return
-		}
-
-		// Remove coins from recipient
-		_, err = b.db.Exec("UPDATE users SET balance = balance - $1 WHERE user_id = $2", amount, recipientID)
-		if err != nil {
-			log.Printf("Error removing coins from user: %v", err)
-			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-			return
-		}
-
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Removed %d coins from <@%s>", amount, recipientID))
-
-	case "add":
-		if len(args) < 3 {
-			s.ChannelMessageSend(m.ChannelID, "Usage: .add <@user> <amount>")
-			return
-		}
-
-		// Check if the user is an admin
-		isAdmin, err := b.isAdmin(m.Author.ID)
-		if err != nil {
-			log.Printf("Error checking admin status: %v", err)
-			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-			return
-		}
-		if !isAdmin {
-			s.ChannelMessageSend(m.ChannelID, "You are not authorized to use this command.")
-			return
-		}
-
-		// Extract and validate the recipient mention
-		recipientMention := args[1]
-		recipientID, err := extractUserID(recipientMention)
-		if err != nil {
-			s.ChannelMessageSend(m.ChannelID, "Invalid mention. Please use a proper mention (e.g., @username).")
-			return
-		}
-
-		// Check if the recipient exists
-		exists, err := userExists(s, recipientID)
-		if err != nil {
-			log.Printf("Error checking user existence: %v", err)
-			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-			return
-		}
-		if !exists {
-			s.ChannelMessageSend(m.ChannelID, "User not found. Please check the mention.")
-			return
-		}
-
-		// Extract the amount
-		amount := 0
-		fmt.Sscanf(args[2], "%d", &amount)
-
-		// Validate amount
-		if amount <= 0 {
-			s.ChannelMessageSend(m.ChannelID, "Amount must be greater than 0.")
-			return
-		}
-
-		// Add coins to the recipient
-		_, err = b.db.Exec("UPDATE users SET balance = balance + $1 WHERE user_id = $2", amount, recipientID)
-		if err != nil {
-			log.Printf("Error adding coins to user: %v", err)
-			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-			return
-		}
-
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Added %d coins to <@%s>", amount, recipientID))
-
 	case "lb":
 		var users []struct {
 			UserID  string
@@ -699,6 +540,165 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 				msg = updatedMsg
 			})
 		}
+
+// ============================= ADMIN ONLY ======================================
+
+	case "setadmin":
+		if len(args) < 2 {
+			s.ChannelMessageSend(m.ChannelID, "Usage: .sa <@user>")
+			return
+		}
+
+		// Check if the user is an admin
+		var isAdmin bool
+		err := b.db.QueryRow("SELECT is_admin FROM users WHERE user_id = $1", m.Author.ID).Scan(&isAdmin)
+		if err != nil || !isAdmin {
+			s.ChannelMessageSend(m.ChannelID, "You are not authorized to use this command.")
+			return
+		}
+
+		recipient := strings.TrimPrefix(strings.TrimSuffix(args[1], ">"), "<@")
+
+		// Promote the user to admin
+		_, err = b.db.Exec("UPDATE users SET is_admin = TRUE WHERE user_id = $1", recipient)
+		if err != nil {
+			log.Printf("Error promoting user: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Promoted <@%s> to admin.", recipient))
+
+	case "take":
+		if len(args) < 3 {
+			s.ChannelMessageSend(m.ChannelID, "Usage: .take <@user> <amount>")
+			return
+		}
+
+		// Check if the user is an admin
+		isAdmin, err := b.isAdmin(m.Author.ID)
+		if err != nil {
+			log.Printf("Error checking admin status: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+		if !isAdmin {
+			s.ChannelMessageSend(m.ChannelID, "You are not authorized to use this command.")
+			return
+		}
+
+		// Extract and validate the recipient mention
+		recipientMention := args[1]
+		recipientID, err := extractUserID(recipientMention)
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Invalid mention. Please use a proper mention (e.g., @username).")
+			return
+		}
+
+		// Check if the recipient exists
+		exists, err := userExists(s, recipientID)
+		if err != nil {
+			log.Printf("Error checking user existence: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+		if !exists {
+			s.ChannelMessageSend(m.ChannelID, "User not found. Please check the mention.")
+			return
+		}
+
+		// Extract the amount
+		amount := 0
+		fmt.Sscanf(args[2], "%d", &amount)
+
+		// Validate amount
+		if amount <= 0 {
+			s.ChannelMessageSend(m.ChannelID, "Amount must be greater than 0.")
+			return
+		}
+
+		// Get recipient's balance
+		var recipientBalance int
+		err = b.db.QueryRow("SELECT balance FROM users WHERE user_id = $1", recipientID).Scan(&recipientBalance)
+		if err != nil {
+			log.Printf("Error querying recipient balance: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		// Check if user has enough coins
+		if recipientBalance < amount {
+			s.ChannelMessageSend(m.ChannelID, "User does not have enough coins")
+			return
+		}
+
+		// Remove coins from recipient
+		_, err = b.db.Exec("UPDATE users SET balance = balance - $1 WHERE user_id = $2", amount, recipientID)
+		if err != nil {
+			log.Printf("Error removing coins from user: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Removed %d coins from <@%s>", amount, recipientID))
+
+	case "add":
+		if len(args) < 3 {
+			s.ChannelMessageSend(m.ChannelID, "Usage: .add <@user> <amount>")
+			return
+		}
+
+		// Check if the user is an admin
+		isAdmin, err := b.isAdmin(m.Author.ID)
+		if err != nil {
+			log.Printf("Error checking admin status: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+		if !isAdmin {
+			s.ChannelMessageSend(m.ChannelID, "You are not authorized to use this command.")
+			return
+		}
+
+		// Extract and validate the recipient mention
+		recipientMention := args[1]
+		recipientID, err := extractUserID(recipientMention)
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Invalid mention. Please use a proper mention (e.g., @username).")
+			return
+		}
+
+		// Check if the recipient exists
+		exists, err := userExists(s, recipientID)
+		if err != nil {
+			log.Printf("Error checking user existence: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+		if !exists {
+			s.ChannelMessageSend(m.ChannelID, "User not found. Please check the mention.")
+			return
+		}
+
+		// Extract the amount
+		amount := 0
+		fmt.Sscanf(args[2], "%d", &amount)
+
+		// Validate amount
+		if amount <= 0 {
+			s.ChannelMessageSend(m.ChannelID, "Amount must be greater than 0.")
+			return
+		}
+
+		// Add coins to the recipient
+		_, err = b.db.Exec("UPDATE users SET balance = balance + $1 WHERE user_id = $2", amount, recipientID)
+		if err != nil {
+			log.Printf("Error adding coins to user: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Added %d coins to <@%s>", amount, recipientID))
 	}
 }
 

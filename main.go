@@ -171,7 +171,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		b.db.QueryRow("SELECT balance FROM users WHERE user_id = $1", m.Author.ID).Scan(&balance)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Balance: %d coins", balance))
 
-	case "daily":
+	case "work":
 		var lastDaily time.Time
 		var balance int
 
@@ -194,7 +194,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 
 		// Check if 24 hours have passed since the last daily
-		if lastDaily.IsZero() || time.Since(lastDaily) >= 24*time.Hour {
+		if lastDaily.IsZero() || time.Since(lastDaily) >= 12*time.Hour {
 			_, err := b.db.Exec("UPDATE users SET balance = balance + 100, last_daily = NOW() WHERE user_id = $1", m.Author.ID)
 			if err != nil {
 				log.Printf("Error updating user balance: %v", err)
@@ -203,7 +203,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 			s.ChannelMessageSend(m.ChannelID, "You received 100 coins!")
 		} else {
-			s.ChannelMessageSend(m.ChannelID, "Wait 24h before next daily")
+			s.ChannelMessageSend(m.ChannelID, "You have to wait 12 hours before you can work again")
 		}
 
 	case "transfer":

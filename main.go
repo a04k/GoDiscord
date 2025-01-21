@@ -406,7 +406,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("You lost %d coins! Your new balance is %d.", amount, balance-amount))
 		}
 
-	case "sa":
+	case "setadmin":
 		if len(args) < 2 {
 			s.ChannelMessageSend(m.ChannelID, "Usage: .sa <@user>")
 			return

@@ -61,7 +61,7 @@ go run main.go
 | `.bal`                      | Check your balance                   |
 | `.daily`                    | Claim daily coins                    |
 | `.work`                     | Earn coins (6h cooldown)             |
-| `.flip <amount / all>`      | Gamble coins:(specified amount / all)|
+| `.flip <amount / all>`      | Gamble coins: (specified amount / all)|
 | `.transfer <@user> <amount>`| Send coins to another user           |
 | `.add <@user> <amount>`     | Admin: Add coins to a user           |
 | `.promote <@user>`          | Admin: Promote a user to admin       |

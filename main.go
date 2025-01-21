@@ -379,7 +379,142 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Promoted <@%s> to admin.", recipient))
 
-	//ADMIN ONLY
+		//ADMIN ONLY
+	case "take":
+		if len(args) < 3 {
+			s.ChannelMessageSend(m.ChannelID, "Usage: .take <@user> <amount>")
+			return
+		}
+
+		// Check if the user is an admin
+		isAdmin, err := b.isAdmin(m.Author.ID)
+		if err != nil {
+			log.Printf("Error checking admin status: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+		if !isAdmin {
+			s.ChannelMessageSend(m.ChannelID, "You are not authorized to use this command.")
+			return
+		}
+
+		// Extract recipient and amount
+		recipient := strings.TrimPrefix(strings.TrimSuffix(args[1], ">"), "<@")
+		amount := 0
+		fmt.Sscanf(args[2], "%d", &amount)
+
+		// Validate amount
+		if amount <= 0 {
+			s.ChannelMessageSend(m.ChannelID, "Amount must be greater than 0.")
+			return
+		}
+
+		// Check if the recipient exists
+		var userExists bool
+		err = b.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1)", recipient).Scan(&userExists)
+		if err != nil {
+			log.Printf("Error checking user existence: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		if !userExists {
+			s.ChannelMessageSend(m.ChannelID, "User not found.")
+			return
+		}
+
+		// Get recipient's balance
+		var recipientBalance int
+		err = b.db.QueryRow("SELECT balance FROM users WHERE user_id = $1", recipient).Scan(&recipientBalance)
+		if err != nil {
+			log.Printf("Error querying recipient balance: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		// Check if user has enough coins
+		if recipientBalance < amount {
+			s.ChannelMessageSend(m.ChannelID, "User does not have enough coins")
+			return
+		}
+
+		// Remove coins from recipient
+		_, err = b.db.Exec("UPDATE users SET balance = balance - $1 WHERE user_id = $2", amount, recipient)
+		if err != nil {
+			log.Printf("Error removing coins from user: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Removed %d coins from <@%s>", amount, recipient))
+
+	case "remove":
+		if len(args) < 3 {
+			s.ChannelMessageSend(m.ChannelID, "Usage: .remove <@user> <amount>")
+			return
+		}
+
+		// Check if the user is an admin
+		isAdmin, err := b.isAdmin(m.Author.ID)
+		if err != nil {
+			log.Printf("Error checking admin status: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+		if !isAdmin {
+			s.ChannelMessageSend(m.ChannelID, "You are not authorized to use this command.")
+			return
+		}
+
+		// Extract recipient and amount
+		recipient := strings.TrimPrefix(strings.TrimSuffix(args[1], ">"), "<@")
+		amount := 0
+		fmt.Sscanf(args[2], "%d", &amount)
+
+		// Validate amount
+		if amount <= 0 {
+			s.ChannelMessageSend(m.ChannelID, "Amount must be greater than 0.")
+			return
+		}
+
+		// Check if the recipient exists
+		var userExists bool
+		err = b.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1)", recipient).Scan(&userExists)
+		if err != nil {
+			log.Printf("Error checking user existence: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		if !userExists {
+			s.ChannelMessageSend(m.ChannelID, "User not found.")
+			return
+		}
+
+		// Get recipient's balance
+		var recipientBalance int
+		err = b.db.QueryRow("SELECT balance FROM users WHERE user_id = $1", recipient).Scan(&recipientBalance)
+		if err != nil {
+			log.Printf("Error querying recipient balance: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		// If the amount is greater than the users balance set amount to balance
+		if amount > recipientBalance {
+			amount = recipientBalance
+		}
+
+		// Remove coins from recipient
+		_, err = b.db.Exec("UPDATE users SET balance = balance - $1 WHERE user_id = $2", amount, recipient)
+		if err != nil {
+			log.Printf("Error removing coins from user: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("stole %d coins from <@%s> ", amount, recipient))
+
 	case "add":
 		if len(args) < 3 {
 			s.ChannelMessageSend(m.ChannelID, "Usage: .add <@user> <amount>")

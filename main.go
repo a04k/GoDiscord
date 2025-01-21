@@ -67,6 +67,36 @@ func NewBot(token string, dbURL string) (*Bot, error) {
 	return &Bot{db: db, client: client}, nil
 }
 
+// ============================================ HELPER FUNCTIONS =========================================== //
+
+func userExists(s *discordgo.Session, userID string) (bool, error) {
+	_, err := s.User(userID)
+	if err != nil {
+		if strings.Contains(err.Error(), "Unknown User") {
+			return false, nil // User does not exist
+		}
+		return false, err // Other error
+	}
+	return true, nil // User exists
+}
+
+func extractUserID(mention string) (string, error) {
+	// Check if the mention is properly formatted
+	if !strings.HasPrefix(mention, "<@") || !strings.HasSuffix(mention, ">") {
+		return "", fmt.Errorf("invalid mention format")
+	}
+
+	// Extract the user ID
+	userID := strings.TrimPrefix(strings.TrimSuffix(mention, ">"), "<@")
+
+	// Validate that the user ID is a valid Snowflake (Discord ID)
+	if _, err := strconv.ParseUint(userID, 10, 64); err != nil {
+		return "", fmt.Errorf("invalid user ID")
+	}
+
+	return userID, nil
+}
+
 func (b *Bot) isAdmin(userID string) (bool, error) {
 	var isAdmin bool
 	err := b.db.QueryRow("SELECT is_admin FROM users WHERE user_id = $1", userID).Scan(&isAdmin)
@@ -78,6 +108,8 @@ func (b *Bot) isAdmin(userID string) (bool, error) {
 	}
 	return isAdmin, nil
 }
+
+// ============================================ BOT FUNCTIONALITY =========================================== //
 
 func getUSDEGP() (float64, error) {
 	// scrape town
@@ -195,7 +227,9 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		// Check if the user exists
 		err := b.db.QueryRow("SELECT last_daily, balance FROM users WHERE user_id = $1", m.Author.ID).Scan(&lastDaily, &balance)
 		if err == sql.ErrNoRows {
-			// User doesn't exist, insert a new row
+			// User doesn't exist, insert a new row{{INSERTED_CODE}}
+			_, err = b.db.Exec("INSERT INTO users (user_id, balance, last_daily) VALUES ($1, $2, NOW())", m.Author.ID, reward)
+
 			if err != nil {
 				log.Printf("Error inserting new user: %v", err)
 				s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
@@ -229,8 +263,27 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
-		// Extract recipient and amount
-		recipient := args[1]
+		// Extract and validate the recipient mention
+		recipientMention := args[1]
+		recipientID, err := extractUserID(recipientMention)
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Invalid mention. Please use a proper mention (e.g., @username).")
+			return
+		}
+
+		// Check if the recipient exists
+		exists, err := userExists(s, recipientID)
+		if err != nil {
+			log.Printf("Error checking user existence: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+		if !exists {
+			s.ChannelMessageSend(m.ChannelID, "User not found. Please check the mention.")
+			return
+		}
+
+		// Extract the amount
 		amount := 0
 		fmt.Sscanf(args[2], "%d", &amount)
 
@@ -242,7 +295,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		// Get sender's balance
 		var senderBalance int
-		err := b.db.QueryRow("SELECT balance FROM users WHERE user_id = $1", m.Author.ID).Scan(&senderBalance)
+		err = b.db.QueryRow("SELECT balance FROM users WHERE user_id = $1", m.Author.ID).Scan(&senderBalance)
 		if err == sql.ErrNoRows {
 			s.ChannelMessageSend(m.ChannelID, "You have 0 coins.")
 			return
@@ -260,10 +313,10 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		// Get recipient's balance
 		var recipientBalance int
-		err = b.db.QueryRow("SELECT balance FROM users WHERE user_id = $1", recipient).Scan(&recipientBalance)
+		err = b.db.QueryRow("SELECT balance FROM users WHERE user_id = $1", recipientID).Scan(&recipientBalance)
 		if err == sql.ErrNoRows {
 			// Recipient doesn't exist, create a new row for them
-			_, err := b.db.Exec("INSERT INTO users (user_id, balance) VALUES ($1, 0)", recipient)
+			_, err := b.db.Exec("INSERT INTO users (user_id, balance) VALUES ($1, 0)", recipientID)
 			if err != nil {
 				log.Printf("Error creating recipient: %v", err)
 				s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
@@ -285,7 +338,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 
 		// Add to recipient's balance
-		_, err = b.db.Exec("UPDATE users SET balance = balance + $1 WHERE user_id = $2", amount, recipient)
+		_, err = b.db.Exec("UPDATE users SET balance = balance + $1 WHERE user_id = $2", amount, recipientID)
 		if err != nil {
 			log.Printf("Error updating recipient balance: %v", err)
 			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
@@ -293,8 +346,8 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 
 		// Notify sender and recipient
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("You transferred %d coins to <@%s>.", amount, recipient))
-		s.ChannelMessageSend(recipient, fmt.Sprintf("You received %d coins from <@%s>.", amount, m.Author.ID))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("You transferred %d coins to <@%s>.", amount, recipientID))
+		s.ChannelMessageSend(recipientID, fmt.Sprintf("You received %d coins from <@%s>.", amount, m.Author.ID))
 
 	case "flip":
 		if len(args) < 2 {
@@ -379,7 +432,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Promoted <@%s> to admin.", recipient))
 
-		//ADMIN ONLY
+	//ADMIN ONLY
 	case "take":
 		if len(args) < 3 {
 			s.ChannelMessageSend(m.ChannelID, "Usage: .take <@user> <amount>")
@@ -398,8 +451,27 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
-		// Extract recipient and amount
-		recipient := strings.TrimPrefix(strings.TrimSuffix(args[1], ">"), "<@")
+		// Extract and validate the recipient mention
+		recipientMention := args[1]
+		recipientID, err := extractUserID(recipientMention)
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Invalid mention. Please use a proper mention (e.g., @username).")
+			return
+		}
+
+		// Check if the recipient exists
+		exists, err := userExists(s, recipientID)
+		if err != nil {
+			log.Printf("Error checking user existence: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+		if !exists {
+			s.ChannelMessageSend(m.ChannelID, "User not found. Please check the mention.")
+			return
+		}
+
+		// Extract the amount
 		amount := 0
 		fmt.Sscanf(args[2], "%d", &amount)
 
@@ -409,23 +481,9 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
-		// Check if the recipient exists
-		var userExists bool
-		err = b.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1)", recipient).Scan(&userExists)
-		if err != nil {
-			log.Printf("Error checking user existence: %v", err)
-			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-			return
-		}
-
-		if !userExists {
-			s.ChannelMessageSend(m.ChannelID, "User not found.")
-			return
-		}
-
 		// Get recipient's balance
 		var recipientBalance int
-		err = b.db.QueryRow("SELECT balance FROM users WHERE user_id = $1", recipient).Scan(&recipientBalance)
+		err = b.db.QueryRow("SELECT balance FROM users WHERE user_id = $1", recipientID).Scan(&recipientBalance)
 		if err != nil {
 			log.Printf("Error querying recipient balance: %v", err)
 			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
@@ -439,81 +497,14 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 
 		// Remove coins from recipient
-		_, err = b.db.Exec("UPDATE users SET balance = balance - $1 WHERE user_id = $2", amount, recipient)
+		_, err = b.db.Exec("UPDATE users SET balance = balance - $1 WHERE user_id = $2", amount, recipientID)
 		if err != nil {
 			log.Printf("Error removing coins from user: %v", err)
 			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
 			return
 		}
 
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Removed %d coins from <@%s>", amount, recipient))
-
-	case "remove":
-		if len(args) < 3 {
-			s.ChannelMessageSend(m.ChannelID, "Usage: .remove <@user> <amount>")
-			return
-		}
-
-		// Check if the user is an admin
-		isAdmin, err := b.isAdmin(m.Author.ID)
-		if err != nil {
-			log.Printf("Error checking admin status: %v", err)
-			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-			return
-		}
-		if !isAdmin {
-			s.ChannelMessageSend(m.ChannelID, "You are not authorized to use this command.")
-			return
-		}
-
-		// Extract recipient and amount
-		recipient := strings.TrimPrefix(strings.TrimSuffix(args[1], ">"), "<@")
-		amount := 0
-		fmt.Sscanf(args[2], "%d", &amount)
-
-		// Validate amount
-		if amount <= 0 {
-			s.ChannelMessageSend(m.ChannelID, "Amount must be greater than 0.")
-			return
-		}
-
-		// Check if the recipient exists
-		var userExists bool
-		err = b.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1)", recipient).Scan(&userExists)
-		if err != nil {
-			log.Printf("Error checking user existence: %v", err)
-			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-			return
-		}
-
-		if !userExists {
-			s.ChannelMessageSend(m.ChannelID, "User not found.")
-			return
-		}
-
-		// Get recipient's balance
-		var recipientBalance int
-		err = b.db.QueryRow("SELECT balance FROM users WHERE user_id = $1", recipient).Scan(&recipientBalance)
-		if err != nil {
-			log.Printf("Error querying recipient balance: %v", err)
-			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-			return
-		}
-
-		// If the amount is greater than the users balance set amount to balance
-		if amount > recipientBalance {
-			amount = recipientBalance
-		}
-
-		// Remove coins from recipient
-		_, err = b.db.Exec("UPDATE users SET balance = balance - $1 WHERE user_id = $2", amount, recipient)
-		if err != nil {
-			log.Printf("Error removing coins from user: %v", err)
-			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-			return
-		}
-
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("stole %d coins from <@%s> ", amount, recipient))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Removed %d coins from <@%s>", amount, recipientID))
 
 	case "add":
 		if len(args) < 3 {
@@ -533,8 +524,27 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
-		// Extract recipient and amount
-		recipient := strings.TrimPrefix(strings.TrimSuffix(args[1], ">"), "<@")
+		// Extract and validate the recipient mention
+		recipientMention := args[1]
+		recipientID, err := extractUserID(recipientMention)
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Invalid mention. Please use a proper mention (e.g., @username).")
+			return
+		}
+
+		// Check if the recipient exists
+		exists, err := userExists(s, recipientID)
+		if err != nil {
+			log.Printf("Error checking user existence: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+		if !exists {
+			s.ChannelMessageSend(m.ChannelID, "User not found. Please check the mention.")
+			return
+		}
+
+		// Extract the amount
 		amount := 0
 		fmt.Sscanf(args[2], "%d", &amount)
 
@@ -544,33 +554,151 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
-		// Check if the recipient exists
-		var userExists bool
-		err = b.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1)", recipient).Scan(&userExists)
+		// Add coins to the recipient
+		_, err = b.db.Exec("UPDATE users SET balance = balance + $1 WHERE user_id = $2", amount, recipientID)
 		if err != nil {
-			log.Printf("Error checking user existence: %v", err)
+			log.Printf("Error adding coins to user: %v", err)
 			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
 			return
 		}
 
-		// Add coins to the recipient
-		if !userExists {
-			_, err := b.db.Exec("INSERT INTO users (user_id, balance) VALUES ($1, $2)", recipient, amount)
-			if err != nil {
-				log.Printf("Error creating user: %v", err)
-				s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-				return
-			}
-		} else {
-			_, err = b.db.Exec("UPDATE users SET balance = balance + $1 WHERE user_id = $2", amount, recipient)
-			if err != nil {
-				log.Printf("Error adding coins to user: %v", err)
-				s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-				return
-			}
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Added %d coins to <@%s>", amount, recipientID))
+
+	case "lb":
+		var users []struct {
+			UserID  string
+			Balance int
 		}
 
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Added %d coins to <@%s>", amount, recipient))
+		rows, err := b.db.Query("SELECT user_id, balance FROM users ORDER BY balance DESC")
+		if err != nil {
+			log.Printf("Error querying leaderboard: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var user struct {
+				UserID  string
+				Balance int
+			}
+			if err := rows.Scan(&user.UserID, &user.Balance); err != nil {
+				log.Printf("Error scanning leaderboard rows: %v", err)
+				s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+				return
+			}
+			users = append(users, user)
+		}
+		if err := rows.Err(); err != nil {
+			log.Printf("Error during leaderboard rows iteration: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+		if len(users) == 0 {
+			s.ChannelMessageSend(m.ChannelID, "No users found.")
+			return
+		}
+
+		const pageSize = 10
+		totalPages := (len(users) + pageSize - 1) / pageSize
+
+		currentPage := 0
+
+		sendLeaderboard := func(page int) (*discordgo.Message, error) {
+			start := page * pageSize
+			end := start + pageSize
+			if end > len(users) {
+				end = len(users)
+			}
+
+			embed := &discordgo.MessageEmbed{
+				Title:       "Coin Leaderboard",
+				Description: "Top users by coin balance:",
+				Color:       0x00ff00, // Green color
+				Fields:      make([]*discordgo.MessageEmbedField, 0),
+				Footer: &discordgo.MessageEmbedFooter{
+					Text: fmt.Sprintf("Page %d of %d", page+1, totalPages),
+				},
+			}
+
+			for i := start; i < end; i++ {
+				user := users[i]
+				discordUser, err := s.User(user.UserID)
+				if err != nil {
+					log.Printf("Error fetching user: %v", err)
+					continue
+				}
+				embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+					Name:  fmt.Sprintf("%d. %s", i+1, discordUser.Username),
+					Value: fmt.Sprintf("%d coins", user.Balance),
+				})
+			}
+
+			msg, err := s.ChannelMessageSendEmbed(m.ChannelID, embed)
+			if err != nil {
+				return nil, err
+			}
+
+			if totalPages > 1 {
+				err = s.MessageReactionAdd(m.ChannelID, msg.ID, "⬅️")
+				if err != nil {
+					log.Printf("Error adding reaction: %v", err)
+					return nil, err
+				}
+				err = s.MessageReactionAdd(m.ChannelID, msg.ID, "➡️")
+				if err != nil {
+					log.Printf("Error adding reaction: %v", err)
+					return nil, err
+				}
+			}
+
+			return msg, nil
+		}
+
+		msg, err := sendLeaderboard(currentPage)
+		if err != nil {
+			log.Printf("Error sending leaderboard message: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		// Reaction handling
+		if totalPages > 1 {
+			b.client.AddHandlerOnce(func(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
+				if r.MessageID != msg.ID || r.UserID == s.State.User.ID {
+					return
+				}
+
+				if r.Emoji.Name == "⬅️" {
+					currentPage--
+					if currentPage < 0 {
+						currentPage = totalPages - 1
+					}
+				} else if r.Emoji.Name == "➡️" {
+					currentPage++
+					if currentPage >= totalPages {
+						currentPage = 0
+					}
+				} else {
+					return
+				}
+
+				err := s.MessageReactionsRemoveAll(m.ChannelID, msg.ID)
+				if err != nil {
+					log.Printf("Error removing reactions: %v", err)
+					return
+				}
+
+				updatedMsg, err := sendLeaderboard(currentPage)
+				if err != nil {
+					log.Printf("Error updating leaderboard: %v", err)
+				}
+
+				s.ChannelMessageDelete(m.ChannelID, msg.ID)
+				msg = updatedMsg
+			})
+		}
 	}
 }
 

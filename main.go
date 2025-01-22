@@ -250,14 +250,14 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	switch cmd {
 
-	case "help":
+	case "help", "h":
 		if len(args) < 2 {
+			// Send embed for all commands if no arguments
 			embed := &discordgo.MessageEmbed{
 				Title:       "Available Commands",
 				Description: "Here is a list of all available commands:",
-				Color:       0xFF5733, //orange left bar for commands list (.help [no arg])
+				Color:       0xFF5733, //orange left bar for commands list
 
-				// Using fields for better readability
 				Fields: []*discordgo.MessageEmbedField{
 					{
 						Name:   "User Commands",
@@ -278,16 +278,15 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 
 			s.ChannelMessageSendEmbed(m.ChannelID, embed)
-			return
+			return // Don't proceed to the rest of the code
 		}
 
-		// display individual command help as before
-		//
+		// If a command is specified, display individual command help
 		command := strings.ToLower(args[1])
 		var response string
 		noPermissionMessage := "You do not have permission to access this command."
 
-		// Check if the user is an admin or mod 
+		// Check if the user is an admin or mod
 		isMod, _ := b.isModerator(m.Author.ID)
 		isOwner, _ := b.isAdmin(m.Author.ID)
 
@@ -765,33 +764,58 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			})
 		}
 
-		// ============================= ADMIN ONLY ======================================
+	// ============================= ADMIN ONLY ======================================
 
-	case "ra", "removeadmin":
+	case "ban":
 		if len(args) < 2 {
-			s.ChannelMessageSend(m.ChannelID, "Usage: .ra <@user>")
+			s.ChannelMessageSend(m.ChannelID, "Usage: .ban @user [reason] [days_to_delete_messages]")
 			return
 		}
 
-		// Check if the user is an admin
-		var isAdmin bool
-		err := b.db.QueryRow("SELECT is_admin FROM users WHERE user_id = $1", m.Author.ID).Scan(&isAdmin)
-		if err != nil || !isAdmin {
-			s.ChannelMessageSend(m.ChannelID, "You are not authorized to use this command.")
-			return
-		}
-
-		recipient := strings.TrimPrefix(strings.TrimSuffix(args[1], ">"), "<@")
-
-		// Promote the user to admin
-		_, err = b.db.Exec("UPDATE users SET is_admin = FALSE WHERE user_id = $1", recipient)
+		targetUser, err := extractUserID(args[1])
 		if err != nil {
-			log.Printf("Error promoting user: %v", err)
-			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			s.ChannelMessageSend(m.ChannelID, "Invalid user / use. Please use a proper mention (e.g., @username).")
 			return
 		}
 
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Removed <@%s> from bot adminstrators.", recipient))
+		reason := "No reason provided - .ban used"
+		if len(args) >= 3 {
+			reason = strings.Join(args[2:], " ")
+		}
+
+		// default message deletion days = zero
+		msgDelDays := 0
+		if len(args) >= 4 {
+			days, err := strconv.Atoi(args[3])
+			if err == nil {
+				msgDelDays = days
+			}
+		}
+
+		// throw the ban hammer
+		err = s.GuildBanCreateWithReason(m.GuildID, targetUser, reason, msgDelDays)
+		if err != nil {
+			log.Printf("Error banning user: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred while banning the user.")
+			return
+		}
+
+		// ban confirm msg
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Banned user <@%s>. Reason: %s", targetUser, reason))
+
+	case "unban":
+		if len(args) >= 2 {
+			targetUser := args[1]
+			// remove
+			err := s.GuildBanDelete(m.GuildID, targetUser)
+			if err != nil {
+				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Failed to unban user: %s", err))
+				return
+			}
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Unbanned user <@%s>", targetUser))
+		} else {
+			s.ChannelMessageSend(m.ChannelID, "Please specify a user ID to unban.")
+		}
 
 	case "setadmin", "sa":
 		if len(args) < 2 {
@@ -799,10 +823,13 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
-		// Check if the user is an admin
-		var isAdmin bool
-		err := b.db.QueryRow("SELECT is_admin FROM users WHERE user_id = $1", m.Author.ID).Scan(&isAdmin)
-		if err != nil || !isAdmin {
+		isAdmin, err := b.isAdmin(m.Author.ID)
+		if err != nil {
+			log.Printf("Error checking admin status: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+		if !isAdmin {
 			s.ChannelMessageSend(m.ChannelID, "You are not authorized to use this command.")
 			return
 		}
@@ -819,16 +846,49 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Promoted <@%s> to admin.", recipient))
 
+	case "ra", "removeadmin":
+		if len(args) < 2 {
+			s.ChannelMessageSend(m.ChannelID, "Usage: .ra <@user>")
+			return
+		}
+
+		isAdmin, err := b.isAdmin(m.Author.ID)
+		if err != nil {
+			log.Printf("Error checking admin status: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+		if !isAdmin {
+			s.ChannelMessageSend(m.ChannelID, "You are not authorized to use this command.")
+			return
+		}
+
+		recipient := strings.TrimPrefix(strings.TrimSuffix(args[1], ">"), "<@")
+
+		// Promote the user to admin
+		_, err = b.db.Exec("UPDATE users SET is_admin = FALSE WHERE user_id = $1", recipient)
+		if err != nil {
+			log.Printf("Error promoting user: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Removed <@%s> from bot adminstrators.", recipient))
+
 	case "ia", "isadmin":
 		if len(args) < 2 {
 			s.ChannelMessageSend(m.ChannelID, "Usage: .ia <@user> or .isadmin <@user>")
 			return
 		}
 
-		// Check if the user executing the command is an admin
-		var isAdmin bool
-		err := b.db.QueryRow("SELECT is_admin FROM users WHERE user_id = $1", m.Author.ID).Scan(&isAdmin)
-		if err != nil || !isAdmin {
+		// Admin check
+		isAdmin, err := b.isAdmin(m.Author.ID)
+		if err != nil {
+			log.Printf("Error checking admin status: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+		if !isAdmin {
 			s.ChannelMessageSend(m.ChannelID, "You are not authorized to use this command.")
 			return
 		}
@@ -841,17 +901,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 
 		// Check if the target user is an admin
-		var targetIsAdmin bool
-		err = b.db.QueryRow("SELECT is_admin FROM users WHERE user_id = $1", targetUserID).Scan(&targetIsAdmin)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				s.ChannelMessageSend(m.ChannelID, "User not found.")
-			} else {
-				log.Printf("Error querying target user admin status: %v", err)
-				s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-			}
-			return
-		}
+		targetIsAdmin, _ := b.isAdmin(targetUserID)
 
 		// Send the result
 		if targetIsAdmin {
@@ -1081,7 +1131,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		// Create the role
 		newRole, err := s.GuildRoleCreate(m.GuildID, &discordgo.RoleParams{
 			Name:        roleName,
-			Color:       &roleColor,  // Use a pointer to int for color
+			Color:       &roleColor,  // pointer to int for color
 			Permissions: &permsInt64, // Convert perms to int64 and pass a pointer
 			Hoist:       &hoist,      // Use a pointer to bool for hoist
 		})

@@ -26,16 +26,30 @@ economy features.
 ### **Note: if you're only here for the WE Api, run the test.go folder in the QCheckWE directory.**
 
 ---
+## Setup (Running release executables)
+### **1. Prerequisites**
+- Gobot executable for your OS : [Link](https://github.com/a04k/GoDiscord/releases)
+### **2. Setup**
+- Create directory for gobot
+- Place the gobot executable
+- Create a .env file and replace the values with the key data:
+  
+```env
+  DISCORD_TOKEN=your_token
+  DATABASE_URL="your_db_URL"
+```
 
-## Setup
+
+## Setup (For Building)
 
 ### **1. Prerequisites**
 - Go, PostgreSQL, and a Discord bot token.
 - `.env` file:
-  ```env
+  
+```env
   DISCORD_TOKEN=your_token
-  DATABASE_URL=postgresql://user:password@host:port/database
-  ```
+  DATABASE_URL="your_db_URL"
+```
 
 ### **2. Database Schema**
 ```sql

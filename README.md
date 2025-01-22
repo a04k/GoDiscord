@@ -6,41 +6,48 @@ economy features.
 
 ---
 
-## Features
+## **Features**
 
 ### **1. Economy System**
-- **Balance**: `.bal`
-- **Daily Reward**: `.daily`
-- **Work**: `.work` (6-hour cooldown)
-- **Transfer**: `.transfer <@user> <amount>`
-- **Flip**: `.flip <amount|all>`
-- **Admin Commands**:
-  - Add coins: `.add <@user> <amount>`
-  - Promote: `.promote <@user>`
+- **Balance**: `.bal` or `.balance` — Check your balance
+- **Daily Reward**: `.daily` — Claim your daily reward (with cooldown)
+- **Work**: `.work` — Earn coins (6-hour cooldown)
+- **Transfer**: `.transfer <@user> <amount>` — Send coins to another user
+- **Flip**: `.flip <amount|all>` — Gamble coins (specified amount or all)
+- **Admin/Owner Commands**:
+  - **Add coins**: `.add <@user> <amount>` — Add coins to a user 
+  - **Promote to Admin**: `.sa/setadmin <@user>` — Promote a user to Admin
+  - **Create role**: `.cr/createrole <role name> [color] [permissions] [hoist]` — Create a new role with color, permissions, and hoisting options
+  - **Assign role**: `.sr/setrole <@user> <role name>` or `.sr <@user> <role name>` — Assign a specific role to a user
+  - **View users in role**: `.inrole <role name or mention>` — View all users in a specific role
 
 ### **2. Utility Commands**
-- **USD to EGP**: `.usd [amount]`
-- **BTC Price**: `.btc`
-- **Internet Quota**: `/quota` (requires `/setup <landline> <password>`)
+- **USD to EGP**: `.usd [amount]` — Get USD to EGP exchange rate
+- **BTC Price**: `.btc` — Get the current Bitcoin price in USD
+- **Internet Quota**: `/quota` — Check internet quota (requires `/setup <landline> <password>`)
 
-### **Note: if you're only here for the WE Api, run the test.go folder in the QCheckWE directory.**
+### **Note:**
+If you're only here for the WE Api, run the `test.go` folder in the `QCheckWE` directory.
 
----
+
+# Custom Bot Setup
+
 ## Setup (Running release executables)
 ### **1. Prerequisites**
-- Gobot executable for your OS : [Link](https://github.com/a04k/GoDiscord/releases)
+- Gobot executable for your OS : [Link](https://github.com/a04k/GoDiscord/releases), Discord bot token.
 ### **2. Setup**
 - Create directory for gobot
-- Place the gobot executable
-- Create a .env file and replace the values with the key data:
+- Place the gobot executable in the directory
+- Create a .env file in the same directory and replace the values with the key data:
   
 ```env
   DISCORD_TOKEN=your_token
   DATABASE_URL="your_db_URL"
 ```
+- Run the executable
 
 
-## Setup (For Building)
+## Setup (From Source)
 
 ### **1. Prerequisites**
 - Go, PostgreSQL, and a Discord bot token.

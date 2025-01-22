@@ -249,8 +249,130 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	cmd := strings.ToLower(args[0][1:])
 
 	switch cmd {
+
+	case "help":
+		if len(args) < 2 {
+			embed := &discordgo.MessageEmbed{
+				Title:       "Available Commands",
+				Description: "Here is a list of all available commands:",
+				Color:       0xFF5733, //orange left bar for commands list (.help [no arg])
+
+				// Using fields for better readability
+				Fields: []*discordgo.MessageEmbedField{
+					{
+						Name:   "User Commands",
+						Value:  "`bal / balance` - Check your balance.\n`work` - Earn coins (6h cooldown).\n`flip <amount / all>` - Gamble coins.\n`transfer <@user> <amount>` - Send coins to another user.\n`usd [amount]` - USD to EGP exchange rate.\n`btc` - Bitcoin price in USD.\n`/setup <landline> <password>` - Save WE credentials.\n`/quota` - Check internet quota (after setup).",
+						Inline: false,
+					},
+					{
+						Name:   "Admin Commands",
+						Value:  "`add <@user> <amount>` - add: Add coins to a user.\n`sa <@user>` - sa/setadmin: Promote a user to admin.\n`cr/createrole <role name> [color] [permissions] [hoist]` - Create a new role.\n`sr/setrole <@user> <role name>` - Assign role to user.\n`inrole <role name or mention>` - View users in a role.",
+						Inline: false,
+					},
+					{
+						Name:   "Admin Usage",
+						Value:  "Admin: Add coins to a user.\nAdmin: Promote a user to admin.\nCreate a new role with options for color, permissions, and hoisting.\nAssign role to user.\nView users in a role.",
+						Inline: false,
+					},
+				},
+			}
+
+			s.ChannelMessageSendEmbed(m.ChannelID, embed)
+			return
+		}
+
+		// display individual command help as before
+		//
+		command := strings.ToLower(args[1])
+		var response string
+		noPermissionMessage := "You do not have permission to access this command."
+
+		// Check if the user is an admin or mod 
+		isMod, _ := b.isModerator(m.Author.ID)
+		isOwner, _ := b.isAdmin(m.Author.ID)
+
+		switch command {
+		case "bal", "balance":
+			response = ".bal or .balance\nCheck your balance."
+
+		case "work":
+			response = ".work\nEarn coins (6h cooldown)."
+
+		case "flip":
+			response = ".flip <amount / all>\nGamble coins: (specified amount / all)."
+
+		case "transfer":
+			response = ".transfer <@user> <amount>\nSend coins to another user."
+
+		case "usd":
+			response = ".usd [amount]\nUSD to EGP exchange rate."
+
+		case "btc":
+			response = ".btc\nBitcoin price in USD."
+
+		case "setup":
+			response = "/setup <landline> <password>\nSave WE credentials."
+
+		case "quota":
+			response = "/quota\nCheck internet quota (after setup)."
+
+		// Admin Commands
+		case "add":
+			if isOwner {
+				response = ".add <@user> <amount>\nAdmin: Add coins to a user."
+			} else {
+				response = noPermissionMessage
+			}
+
+		case "sa":
+			if isOwner {
+				response = ".sa <@user>\nAdmin: Promote a user to admin."
+			} else {
+				response = noPermissionMessage
+			}
+
+		case "createrole":
+			if isOwner {
+				response = ".createrole <role name> [color] [permissions] [hoist]\nCreate a new role with options for color, permissions, and hoisting."
+			} else {
+				response = noPermissionMessage
+			}
+
+		case "setrole", "sr":
+			if isOwner || isMod {
+				response = ".setrole <@user> <role name>\nGives the user the role."
+			} else {
+				response = noPermissionMessage
+			}
+
+		case "inrole":
+			if isOwner || isMod {
+				response = ".inrole <role name or mention>\nView all users in a specific role."
+			} else {
+				response = noPermissionMessage
+			}
+
+		default:
+			response = "Command not found. Use .help to get a list of available commands."
+		}
+
+		// Send command help in an embed
+		embed := &discordgo.MessageEmbed{
+			Title:       fmt.Sprintf("Help: %s", command),
+			Description: response,
+			Color:       0x00FF00, // green left bar for command help
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name:   "Usage",
+					Value:  fmt.Sprintf("`%s %s`", m.Content[:5], command),
+					Inline: false,
+				},
+			},
+		}
+		s.ChannelMessageSendEmbed(m.ChannelID, embed)
+
 	case "usd":
-		// Default amount is 1
+		// default amount = 1
 		amount := 1.0
 
 		// Check if the user provided an amount
@@ -288,7 +410,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	case "bal", "balance":
 		var targetUserID string
 
-		// Check if a mention is provided
+		// Check if a mention is provided & validate
 		if len(args) >= 2 {
 			// Extract and validate the target user mention
 			recipientMention := args[1]

@@ -179,6 +179,61 @@ func getHighestRole(member *discordgo.Member, roles []*discordgo.Role) *discordg
 	return highestRole
 }
 
+func (b *Bot) getMutedRole(guildID string) (*discordgo.Role, error) {
+	// fetch all roles in server
+	roles, err := b.client.GuildRoles(guildID)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching guild roles: %v", err)
+	}
+
+	// look for muted role if it exists (which it should, if not then it is handled below)
+	for _, role := range roles {
+		if role.Name == "Muted" {
+			return role, nil
+		}
+	}
+
+	// creating a muted role if it doesn't exist : this will really only be used for servers that havent been set up yet / new servers
+	mutedRole, err := b.client.GuildRoleCreate(guildID, &discordgo.RoleParams{
+		Name: "Muted",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error creating muted role: %v", err)
+	}
+
+	// Set the role name to "Muted" and permissions to 0 (no permissions)
+	_, err = b.client.GuildRoleEdit(guildID, mutedRole.ID, &discordgo.RoleParams{
+		Name:        "Muted",
+		Permissions: new(int64),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error editing muted role: %v", err)
+	}
+
+	// Update channel permissions to restrict the "Muted" role from sending messages
+	channels, err := b.client.GuildChannels(guildID)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching guild channels: %v", err)
+	}
+	for _, channel := range channels {
+		// Deny SendMessages permission for the "Muted" role
+		err = b.client.ChannelPermissionSet(channel.ID, mutedRole.ID, discordgo.PermissionOverwriteTypeRole, 0, discordgo.PermissionSendMessages)
+		if err != nil {
+			return nil, fmt.Errorf("error setting channel permissions for muted role: %v", err)
+		}
+
+		//Deny Speak permission on voice channels too
+		if channel.Type == discordgo.ChannelTypeGuildVoice {
+			err = b.client.ChannelPermissionSet(channel.ID, mutedRole.ID, discordgo.PermissionOverwriteTypeRole, 0, discordgo.PermissionVoiceSpeak)
+			if err != nil {
+				return nil, fmt.Errorf("error setting voice channel permissions for muted role: %v", err)
+			}
+		}
+	}
+
+	return mutedRole, nil
+}
+
 // ============================================ BOT FUNCTIONALITY =========================================== //
 
 func getUSDEGP() (float64, error) {
@@ -256,7 +311,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			embed := &discordgo.MessageEmbed{
 				Title:       "Available Commands",
 				Description: "Here is a list of all available commands:",
-				Color:       0xFF5733, //orange left bar for commands list
+				Color:       0x0000FF, //blue left bar for commands list
 
 				Fields: []*discordgo.MessageEmbedField{
 					{
@@ -265,13 +320,13 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 						Inline: false,
 					},
 					{
-						Name:   "Admin Commands",
-						Value:  "`add <@user> <amount>` - add: Add coins to a user.\n`sa <@user>` - sa/setadmin: Promote a user to admin.\n`cr/createrole <role name> [color] [permissions] [hoist]` - Create a new role.\n`sr/setrole <@user> <role name>` - Assign role to user.\n`inrole <role name or mention>` - View users in a role.",
+						Name:   "Moderator Commands",
+						Value:  "`mute <@user> [reason]` - Mute a user.\n`unmute <@user>` - Unmute a user.\n`voicemute/vm <@user> [reason]` - Mute a user's voice.\n`voiceunmute/vum <@user>` - Unmute a user's voice.",
 						Inline: false,
 					},
 					{
-						Name:   "Admin Usage",
-						Value:  "Admin: Add coins to a user.\nAdmin: Promote a user to admin.\nCreate a new role with options for color, permissions, and hoisting.\nAssign role to user.\nView users in a role.",
+						Name:   "Admin Commands",
+						Value:  "`add <@user> <amount>` - add: Add coins to a user.\n`sa <@user>` - sa/setadmin: Promote a user to admin.\n`cr/createrole <role name> [color] [permissions] [hoist]` - Create a new role.\n`sr/setrole <@user> <role name>` - Assign role to user.\n`inrole <role name or mention>` - View users in a role.\n`ban <@user> [reason(OPTIONAL)] [days(OPTIONAL)]` - Ban a user with optional reason and days of message deletion.",
 						Inline: false,
 					},
 				},
@@ -351,6 +406,13 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 				response = noPermissionMessage
 			}
 
+		case "ban":
+			if isOwner {
+				response = ".ban <@user> [reason] [days]\nBan a user with optional reason and days of message deletion."
+			} else {
+				response = noPermissionMessage
+			}
+
 		default:
 			response = "Command not found. Use .help to get a list of available commands."
 		}
@@ -359,14 +421,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		embed := &discordgo.MessageEmbed{
 			Title:       fmt.Sprintf("Help: %s", command),
 			Description: response,
-			Color:       0x00FF00, // green left bar for command help
-			Fields: []*discordgo.MessageEmbedField{
-				{
-					Name:   "Usage",
-					Value:  fmt.Sprintf("`%s %s`", m.Content[:5], command),
-					Inline: false,
-				},
-			},
+			Color:       0xFF0000, // red left bar for command help
 		}
 		s.ChannelMessageSendEmbed(m.ChannelID, embed)
 
@@ -766,24 +821,318 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	// ============================= ADMIN ONLY ======================================
 
-	case "ban":
-		if len(args) < 2 {
-			s.ChannelMessageSend(m.ChannelID, "Usage: .ban @user [reason] [days_to_delete_messages]")
+	case "kick":
+		// Check if the user is an admin
+		isOwner, err := b.isAdmin(m.Author.ID)
+		if err != nil || !isOwner {
+			s.ChannelMessageSend(m.ChannelID, "You do not have permission to use this command.")
 			return
 		}
 
+		// Check if the user provided at least a target user
+		if len(args) < 2 {
+			s.ChannelMessageSend(m.ChannelID, "Usage: .kick <@user> [reason]")
+			return
+		}
+
+		// Extract target user
 		targetUser, err := extractUserID(args[1])
 		if err != nil {
 			s.ChannelMessageSend(m.ChannelID, "Invalid user / use. Please use a proper mention (e.g., @username).")
 			return
 		}
 
+		// Set default reason
+		reason := "No reason provided - .kick used"
+		if len(args) >= 3 {
+			reason = strings.Join(args[2:], " ")
+		}
+
+		// Kick the user
+		err = s.GuildMemberDeleteWithReason(m.GuildID, targetUser, reason)
+		if err != nil {
+			log.Printf("Error kicking user: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred while kicking the user.")
+			return
+		}
+
+		// kick confirmation message
+		embed := &discordgo.MessageEmbed{
+			Title:       "User Kicked",
+			Description: fmt.Sprintf("Kicked user <@%s>", targetUser),
+			Color:       0xFF0000, // Red bar on the left
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name:   "Reason",
+					Value:  reason,
+					Inline: false,
+				},
+			},
+		}
+
+		// send the embed msg
+		s.ChannelMessageSendEmbed(m.ChannelID, embed)
+
+	case "mute", "m":
+		// Check if the user is an admin or moderator
+		isMod, err := b.isModerator(m.Author.ID)
+		if err != nil {
+			log.Printf("Error checking mod status: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		isOwner, err := b.isAdmin(m.Author.ID)
+		if err != nil {
+			log.Printf("Error checking admin status: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+		if !isMod && !isOwner {
+			s.ChannelMessageSend(m.ChannelID, "You do not have permission to use this command.")
+			return
+		}
+
+		// Check if the user provided at least a target user
+		if len(args) < 2 {
+			s.ChannelMessageSend(m.ChannelID, "Usage: .mute <@user> [reason]")
+			return
+		}
+
+		// Extract target user
+		targetUser, err := extractUserID(args[1])
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Invalid user / use. Please use a proper mention (e.g., @username).")
+			return
+		}
+
+		// Set default reason
+		reason := "No reason provided - .mute used"
+		if len(args) >= 3 {
+			reason = strings.Join(args[2:], " ")
+		}
+
+		// Get the Muted role
+		mutedRole, err := b.getMutedRole(m.GuildID)
+		if err != nil {
+			log.Printf("Error getting muted role: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred while getting the muted role.")
+			return
+		}
+
+		// Add the Muted role to the user
+		err = s.GuildMemberRoleAdd(m.GuildID, targetUser, mutedRole.ID)
+		if err != nil {
+			log.Printf("Error muting user: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred while muting the user.")
+			return
+		}
+
+		// Mute confirmation message
+		embed := &discordgo.MessageEmbed{
+			Title:       "User Muted",
+			Description: fmt.Sprintf("Muted user <@%s>", targetUser),
+			Color:       0xFF0000, // Red bar on the left
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name:   "Reason",
+					Value:  reason,
+					Inline: false,
+				},
+			},
+		}
+
+		// Send the embed message
+		s.ChannelMessageSendEmbed(m.ChannelID, embed)
+
+	case "unmute", "um":
+		// Check if the user is an admin or moderator
+		isMod, err := b.isModerator(m.Author.ID)
+		if err != nil {
+			log.Printf("Error checking mod status: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		isOwner, err := b.isAdmin(m.Author.ID)
+		if err != nil {
+			log.Printf("Error checking admin status: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		if !isMod && !isOwner {
+			s.ChannelMessageSend(m.ChannelID, "You do not have permission to use this command.")
+			return
+		}
+
+		// Check if the user provided at least a target user
+		if len(args) < 2 {
+			s.ChannelMessageSend(m.ChannelID, "Usage: .unmute <@user>")
+			return
+		}
+
+		// Extract target user
+		targetUser, err := extractUserID(args[1])
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Invalid user / use. Please use a proper mention (e.g., @username).")
+			return
+		}
+
+		// Get the Muted role
+		mutedRole, err := b.getMutedRole(m.GuildID)
+		if err != nil {
+			log.Printf("Error getting muted role: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred while getting the muted role.")
+			return
+		}
+
+		// Remove the Muted role from the user
+		err = s.GuildMemberRoleRemove(m.GuildID, targetUser, mutedRole.ID)
+		if err != nil {
+			log.Printf("Error unmuting user: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred while unmuting the user.")
+			return
+		}
+
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Unmuted user <@%s>", targetUser))
+
+	case "voicemute", "vm":
+		// Check if the user is an admin or moderator
+		isMod, err := b.isModerator(m.Author.ID)
+		if err != nil {
+			log.Printf("Error checking mod status: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		isOwner, err := b.isAdmin(m.Author.ID)
+		if err != nil {
+			log.Printf("Error checking admin status: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		if !isMod && !isOwner {
+			s.ChannelMessageSend(m.ChannelID, "You do not have permission to use this command.")
+			return
+		}
+
+		// Check if the user provided at least a target user
+		if len(args) < 2 {
+			s.ChannelMessageSend(m.ChannelID, "Usage: .voicemute/vm <@user> [reason]")
+			return
+		}
+
+		// Extract target user
+		targetUser, err := extractUserID(args[1])
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Invalid user / use. Please use a proper mention (e.g., @username).")
+			return
+		}
+
+		// Set default reason
+		reason := "No reason provided - .mute used"
+		if len(args) >= 3 {
+			reason = strings.Join(args[2:], " ")
+		}
+
+		// Mute the user
+		err = s.GuildMemberMute(m.GuildID, targetUser, true)
+		if err != nil {
+			log.Printf("Error muting user: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred while muting the user.")
+			return
+		}
+
+		// mute confirmation message
+		embed := &discordgo.MessageEmbed{
+			Title:       "User Muted",
+			Description: fmt.Sprintf("Muted user <@%s>", targetUser),
+			Color:       0xFF0000, // Red bar on the left
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name:   "Reason",
+					Value:  reason,
+					Inline: false,
+				},
+			},
+		}
+
+		// send the embed msg
+		s.ChannelMessageSendEmbed(m.ChannelID, embed)
+
+	case "vunmute", "vum":
+		// Check if the user is an admin or moderator
+		isMod, err := b.isModerator(m.Author.ID)
+		if err != nil {
+			log.Printf("Error checking mod status: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		isOwner, err := b.isAdmin(m.Author.ID)
+		if err != nil {
+			log.Printf("Error checking admin status: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		if !isMod && !isOwner {
+			s.ChannelMessageSend(m.ChannelID, "You do not have permission to use this command.")
+			return
+		}
+
+		// Check if the user provided at least a target user
+		if len(args) < 2 {
+			s.ChannelMessageSend(m.ChannelID, "Usage: .voiceunmute/vum <@user>")
+			return
+		}
+
+		// Extract target user
+		targetUser, err := extractUserID(args[1])
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Invalid user / use. Please use a proper mention (e.g., @username).")
+			return
+		}
+
+		// Unmute the user
+		err = s.GuildMemberMute(m.GuildID, targetUser, false)
+		if err != nil {
+			log.Printf("Error unmuting user: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred while unmuting the user.")
+			return
+		}
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Unmuted user <@%s>", targetUser))
+
+	case "ban":
+		// Check if the user is the owner
+		isOwner, err := b.isAdmin(m.Author.ID) // Assuming b.isAdmin checks if the user is the owner
+		if err != nil || !isOwner {
+			s.ChannelMessageSend(m.ChannelID, "You do not have permission to use this command.")
+			return
+		}
+
+		// Check if the user provided at least a target user
+		if len(args) < 2 {
+			s.ChannelMessageSend(m.ChannelID, "Usage: .ban @user [reason] [days_to_delete_messages]")
+			return
+		}
+
+		// Extract target user
+		targetUser, err := extractUserID(args[1])
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Invalid user / use. Please use a proper mention (e.g., @username).")
+			return
+		}
+
+		// Set default reason
 		reason := "No reason provided - .ban used"
 		if len(args) >= 3 {
 			reason = strings.Join(args[2:], " ")
 		}
 
-		// default message deletion days = zero
+		// Default message deletion days = zero
 		msgDelDays := 0
 		if len(args) >= 4 {
 			days, err := strconv.Atoi(args[3])
@@ -792,7 +1141,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 		}
 
-		// throw the ban hammer
+		// Throw the ban hammer
 		err = s.GuildBanCreateWithReason(m.GuildID, targetUser, reason, msgDelDays)
 		if err != nil {
 			log.Printf("Error banning user: %v", err)
@@ -800,13 +1149,33 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
-		// ban confirm msg
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Banned user <@%s>. Reason: %s", targetUser, reason))
+		// ban confirmation message
+		embed := &discordgo.MessageEmbed{
+			Title:       "User Banned",
+			Description: fmt.Sprintf("Banned user <@%s>", targetUser),
+			Color:       0xFF0000, // Red bar on the left
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name:   "Reason",
+					Value:  reason,
+					Inline: false,
+				},
+				{
+					Name:   "Message Deletion",
+					Value:  fmt.Sprintf("%d days", msgDelDays),
+					Inline: false,
+				},
+			},
+		}
+
+		// send the embed msg
+		s.ChannelMessageSendEmbed(m.ChannelID, embed)
 
 	case "unban":
 		if len(args) >= 2 {
 			targetUser := args[1]
-			// remove
+
+			// exec remove ban => guildbandelete
 			err := s.GuildBanDelete(m.GuildID, targetUser)
 			if err != nil {
 				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Failed to unban user: %s", err))
@@ -1125,15 +1494,15 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
-		// Convert perms to int64 for the Permissions field
-		permsInt64 := int64(perms)
+		// perms to int64
+		permsInt64 := int64(perms) //cast
 
-		// Create the role
+		// executing the role creation call (GuildRoleCreate)
 		newRole, err := s.GuildRoleCreate(m.GuildID, &discordgo.RoleParams{
 			Name:        roleName,
 			Color:       &roleColor,  // pointer to int for color
-			Permissions: &permsInt64, // Convert perms to int64 and pass a pointer
-			Hoist:       &hoist,      // Use a pointer to bool for hoist
+			Permissions: &permsInt64, // convert perms to int64 and pass a pointer
+			Hoist:       &hoist,      // using a pointer to bool for hoist (hoisting: having the role appear on the member list)
 		})
 		if err != nil {
 			log.Printf("Error creating role: %v", err)
@@ -1413,7 +1782,7 @@ func (b *Bot) handleSlashCommands(s *discordgo.Session, i *discordgo.Interaction
 		landline := options[0].StringValue()
 		password := options[1].StringValue()
 
-		// Test the credentials first
+		// test the credentials first
 		checker, err := QCheckWE.NewWeQuotaChecker(landline, password)
 		if err != nil {
 			log.Printf("Error creating WE Quota Checker: %v", err)
@@ -1427,7 +1796,7 @@ func (b *Bot) handleSlashCommands(s *discordgo.Session, i *discordgo.Interaction
 			return
 		}
 
-		// Test if we can actually get the quota
+		// test if we can actually get the quota
 		_, err = checker.CheckQuota()
 		if err != nil {
 			log.Printf("Error checking quota: %v", err)

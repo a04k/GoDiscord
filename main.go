@@ -506,7 +506,8 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	case "work":
 		reward := rand.Intn(650-65) + 65
 
-		var lastDaily time.Time
+		var lastDaily sql.NullTime // using nulltime to handle nulls in db
+		// even though the user is supposed to be registered to the bot with a timestamp, when a db problem happens / buggy code things the timestamp could be lost leaving a null
 		var balance int
 
 		// Check if the user exists
@@ -528,7 +529,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 
 		// Check if 6 hours have passed since the last work
-		if lastDaily.IsZero() || time.Since(lastDaily) >= 6*time.Hour {
+		if !lastDaily.Valid || time.Since(lastDaily.Time) >= 6*time.Hour {
 			_, err := b.db.Exec("INSERT INTO users (user_id, balance, last_daily) VALUES ($1, $2, NOW()) ON CONFLICT (user_id) DO UPDATE SET balance = users.balance + $2, last_daily = NOW()", m.Author.ID, reward)
 			if err != nil {
 				log.Printf("Error updating user balance: %v", err)
@@ -537,7 +538,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("You received %d coins!", reward))
 		} else {
-			remaining := 6*time.Hour - time.Since(lastDaily)
+			remaining := 6*time.Hour - time.Since(lastDaily.Time)
 			// Remove seconds from the remaining time
 			formattedRemaining := fmt.Sprintf("%d hours %d minutes", int(remaining.Hours()), int(remaining.Minutes())%60)
 			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("You have to wait %s before you can work again", formattedRemaining))
@@ -1431,7 +1432,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	case "createrole", "cr":
 		if len(args) < 2 {
-			s.ChannelMessageSend(m.ChannelID, "Usage: .createrole/cr <role name> [color hex] [permissions] [hoist]")
+			s.ChannelMessageSend(m.ChannelID, "Usage: .createrole/cr <role name> [color hex] [permissions : (ε: default, mod/owner)] [hoist: (ε:false , hoist/true/1)]")
 			return
 		}
 
@@ -1493,7 +1494,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 
 		// Check for hoist flag (optional)
-		if len(args) > 4 && strings.ToLower(args[4]) == "hoist" {
+		if len(args) > 4 && (strings.ToLower(args[4]) == "hoist" || strings.ToLower(args[4]) == "true" || strings.ToLower(args[4]) == "1") {
 			hoist = true // Enable hoisting if 'hoist' is provided as the 5th argument
 		}
 
@@ -1501,7 +1502,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		permsInt64 := int64(perms) //cast ()
 
 		// executing the role creation call (GuildRoleCreate)
-		newRole, err := s.GuildRoleCreate(m.GuildID, &discordgo.RoleParams{ // roleparams requiring perms in int64 is stupid since perms max value admin = 8
+		newRole, err := s.GuildRoleCreate(m.GuildID, &discordgo.RoleParams{ // roleparams requiring perms val in int64 is stupid since perms max value admin = 8
 			Name:        roleName,
 			Color:       &roleColor,  // pointer to int for color
 			Permissions: &permsInt64, // convert perms to int64 and pass a pointer

@@ -1,13 +1,13 @@
 package test
 
 import (
-	"fmt"
 	"QCheckWE"
+	"fmt"
 )
 
 func main() {
-	landlineNumber := "0244761737"
-	password := "khaled1970"
+	landlineNumber := "YOUR_LANDLINE_NUMBER"
+	password := "YOUR_PASSWORD"
 
 	checker, err := QCheckWE.NewWeQuotaChecker(landlineNumber, password)
 	if err != nil {

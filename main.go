@@ -1892,6 +1892,6 @@ func main() {
 		}
 	}
 
-	log.Println("Bot is running. Press Ctrl+C to exit.")
+	log.Println("GoBot is running. Press Ctrl+C to exit.")
 	select {}
 }

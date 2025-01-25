@@ -307,33 +307,14 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	case "help", "h":
 		if len(args) < 2 {
-			// Send embed for all commands if no arguments
 			embed := &discordgo.MessageEmbed{
-				Title:       "Available Commands",
-				Description: "Here is a list of all available commands:",
+				Title:       "Usage:",
+				Description: ".h / .help [commandname] \n Use .cl / .commandlist to view all commands",
 				Color:       0x0000FF, //blue left bar for commands list
-
-				Fields: []*discordgo.MessageEmbedField{
-					{
-						Name:   "User Commands",
-						Value:  "`bal / balance` - Check your balance.\n`work` - Earn coins (6h cooldown).\n`flip <amount / all>` - Gamble coins.\n`transfer <@user> <amount>` - Send coins to another user.\n`usd [amount]` - USD to EGP exchange rate.\n`btc` - Bitcoin price in USD.\n`/setup <landline> <password>` - Save WE credentials.\n`/quota` - Check internet quota (after setup).",
-						Inline: false,
-					},
-					{
-						Name:   "Moderator Commands",
-						Value:  "`mute <@user> [reason]` - Mute a user.\n`unmute <@user>` - Unmute a user.\n`voicemute/vm <@user> [reason]` - Mute a user's voice.\n`voiceunmute/vum <@user>` - Unmute a user's voice.",
-						Inline: false,
-					},
-					{
-						Name:   "Admin Commands",
-						Value:  "`add <@user> <amount>` - add: Add coins to a user.\n`sa <@user>` - sa/setadmin: Promote a user to admin.\n`cr/createrole <role name> [color] [permissions] [hoist]` - Create a new role.\n`sr/setrole <@user> <role name>` - Assign role to user.\n`inrole <role name or mention>` - View users in a role.\n`ban <@user> [reason(OPTIONAL)] [days(OPTIONAL)]` - Ban a user with optional reason and days of message deletion.",
-						Inline: false,
-					},
-				},
 			}
 
 			s.ChannelMessageSendEmbed(m.ChannelID, embed)
-			return // Don't proceed to the rest of the code
+			return
 		}
 
 		// If a command is specified, display individual command help
@@ -423,6 +404,34 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			Description: response,
 			Color:       0xFF0000, // red left bar for command help
 		}
+		s.ChannelMessageSendEmbed(m.ChannelID, embed)
+
+	case "commandlist", "cl":
+
+		embed := &discordgo.MessageEmbed{
+			Title:       "Available Commands",
+			Description: "Here is a list of all available commands:",
+			Color:       0x0000FF, //blue left bar for commands list
+
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name:   "User Commands",
+					Value:  "`bal / balance` - Check your balance.\n`work` - Earn coins (6h cooldown).\n`flip <amount / all>` - Gamble coins.\n`transfer <@user> <amount>` - Send coins to another user.\n`usd [amount]` - USD to EGP exchange rate.\n`btc` - Bitcoin price in USD.\n`/setup <landline> <password>` - Save WE credentials.\n`/quota` - Check internet quota (after setup).",
+					Inline: false,
+				},
+				{
+					Name:   "Moderator Commands",
+					Value:  "`mute <@user> [reason]` - Mute a user.\n`unmute <@user>` - Unmute a user.\n`voicemute/vm <@user> [reason]` - Mute a user's voice.\n`voiceunmute/vum <@user>` - Unmute a user's voice.",
+					Inline: false,
+				},
+				{
+					Name:   "Admin Commands",
+					Value:  "`add <@user> <amount>` - add: Add coins to a user.\n`sa <@user>` - sa/setadmin: Promote a user to admin.\n`cr/createrole <role name> [color] [permissions] [hoist]` - Create a new role.\n`sr/setrole <@user> <role name>` - Assign role to user.\n`inrole <role name or mention>` - View users in a role.\n`ban <@user> [reason(OPTIONAL)] [days(OPTIONAL)]` - Ban a user with optional reason and days of message deletion.",
+					Inline: false,
+				},
+			},
+		}
+
 		s.ChannelMessageSendEmbed(m.ChannelID, embed)
 
 	case "usd":
@@ -1488,17 +1497,11 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			hoist = true // Enable hoisting if 'hoist' is provided as the 5th argument
 		}
 
-		// Prevent admin role creation
-		if strings.Contains(roleName, "admin") {
-			s.ChannelMessageSend(m.ChannelID, "You cannot create admin roles through this command. Admin roles must be added manually.")
-			return
-		}
-
 		// perms to int64
-		permsInt64 := int64(perms) //cast
+		permsInt64 := int64(perms) //cast ()
 
 		// executing the role creation call (GuildRoleCreate)
-		newRole, err := s.GuildRoleCreate(m.GuildID, &discordgo.RoleParams{
+		newRole, err := s.GuildRoleCreate(m.GuildID, &discordgo.RoleParams{ // roleparams requiring perms in int64 is stupid since perms max value admin = 8
 			Name:        roleName,
 			Color:       &roleColor,  // pointer to int for color
 			Permissions: &permsInt64, // convert perms to int64 and pass a pointer

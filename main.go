@@ -1432,7 +1432,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	case "createrole", "cr":
 		if len(args) < 2 {
-			s.ChannelMessageSend(m.ChannelID, "Usage: .createrole/cr <role name> [color hex] [permissions : (ε: default, mod/owner)] [hoist: (ε:false , hoist/true/1)] [mentionable: (ε:false , mentionable/true/1)]")
+			s.ChannelMessageSend(m.ChannelID, "Usage: .createrole/cr <role name> [color hex] [permissions : (ε: default, mod/owner)] [hoist: (ε:false , hoist/true/1)]")
 			return
 		}
 
@@ -1503,7 +1503,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 
 		// perms to int64
-		permsInt64 := int64(perms) //cast ()
+		permsInt64 := int64(perms) 
 
 		// executing the role creation call (GuildRoleCreate)
 		newRole, err := s.GuildRoleCreate(m.GuildID, &discordgo.RoleParams{ // roleparams requiring perms val in int64 is stupid since perms max value admin = 8
@@ -1898,6 +1898,28 @@ func main() {
 		}
 	}
 
+	log.Println(`
+	  ⣠⣴⣶⣶⣶⣶⣶⣦⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⢀⣴⣿⡿⠛⠉⠙⠛⠛⠛⠿⣿⣿⣿⣷⣤⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⣼⣿⠋⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣉⣻⣿⣿⣷⡀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⣸⣿⡏⠀⠀⠀⣠⣶⣾⣿⣿⣿⠿⠿⠿⢿⣿⣿⣿⣇⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⣿⣿⠁⠀⠀⢰⣿⣿⣯⠁⠀⠀⠀⠀⠀⠀⠀⠈⠙⢿⣿⡄⠀⠀
+⠀⠀⣀⣤⣴⣶⣶⣿⡟⠀⠀⠀⢸⣿⣿⣿⣆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣷⠀⠀
+⠀⢰⣿⡟⠋⠉⣹⣿⡇⠀⠀⠀⠘⣿⣿⣿⣿⣷⣦⣤⣤⣤⣶⣶⣶⣶⣿⣿⠀⠀⠀
+⠀⢸⣿⡇⠀⠀⣿⣿⡇⠀⠀⠀⠀⠈⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠀⠀⠀
+⠀⣸⣿⡇⠀⠀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠈⠙⠛⠿⢿⣿⣿⢟⡟⣻⣿⣿⡇⠀⠀⠀
+⠀⣿⣿⠁⠀⠀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠃⠀⠀
+⠀⣿⣿⠀⠀⠀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠀⠀⠀
+⠀⣿⣿⠀⠀⠀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠀⠀⠀
+⠀⢿⣿⡆⠀⠀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⡇⠀⠀⠀
+⠀⠸⣿⣧⡀⠀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⡇⠀⠀⠀
+⠀⠀⠛⢿⣿⣿⣿⣿⣇⠀⠀⠀⠀⠀⣰⣿⣿⣿⣿⣿⣷⣶⠂⠀⢠⣿⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⣿⣿⠀⠀⠀⠀⠀⣿⣿⡇⠀⣽⣿⡏⠁⠀⠀⢸⣿⡟⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⣿⣿⠀⠀⠀⠀⠀⣿⣿⡇⠀⢹⣿⡆⠀⠀⠀⣸⣿⡇⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⢿⣿⣦⣄⣀⣠⣴⣿⣿⠀⠀⠈⠻⣿⣿⣿⣿⡿⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠈⠛⠻⠿⠿⠿⠿⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+`)
 	log.Println("GoBot is running. Press Ctrl+C to exit.")
 	select {}
+
 }

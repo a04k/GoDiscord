@@ -1432,7 +1432,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	case "createrole", "cr":
 		if len(args) < 2 {
-			s.ChannelMessageSend(m.ChannelID, "Usage: .createrole/cr <role name> [color hex] [permissions : (ε: default, mod/owner)] [hoist: (ε:false , hoist/true/1)]")
+			s.ChannelMessageSend(m.ChannelID, "Usage: .createrole/cr <role name> [color hex] [permissions : (ε: default, mod/owner)] [hoist: (ε:false , hoist/true/1)] [mentionable: (ε:false , mentionable/true/1)]")
 			return
 		}
 
@@ -1471,6 +1471,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		roleName := args[1]
 		roleColor := 0 // Default color (no color)
 		hoist := false // Default hoisting (not visible)
+		mentionable := false
 
 		// Check for optional color hex
 		if len(args) > 2 && strings.HasPrefix(args[2], "#") {
@@ -1497,6 +1498,9 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if len(args) > 4 && (strings.ToLower(args[4]) == "hoist" || strings.ToLower(args[4]) == "true" || strings.ToLower(args[4]) == "1") {
 			hoist = true // Enable hoisting if 'hoist' is provided as the 5th argument
 		}
+		if len(args) > 5 && (strings.ToLower(args[4]) == "hoist" || strings.ToLower(args[4]) == "true" || strings.ToLower(args[4]) == "1"){
+			mentionable = true // makes role mentionable if provided as a 6th arg
+		}
 
 		// perms to int64
 		permsInt64 := int64(perms) //cast ()
@@ -1507,6 +1511,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			Color:       &roleColor,  // pointer to int for color
 			Permissions: &permsInt64, // convert perms to int64 and pass a pointer
 			Hoist:       &hoist,      // using a pointer to bool for hoist (hoisting: having the role appear on the member list)
+			Mentionable: &mentionable,
 		})
 		if err != nil {
 			log.Printf("Error creating role: %v", err)

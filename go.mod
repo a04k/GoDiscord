@@ -5,14 +5,18 @@ go 1.23
 toolchain go1.23.5
 
 require (
-	QCheckWE v0.0.0
+	WeQuota v0.0.0
 	github.com/PuerkitoBio/goquery v1.10.1
 	github.com/bwmarrin/discordgo v0.28.1
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9
 )
 
-replace QCheckWE => ./QCheckWE
+replace WeQuota => ./bot/scripts/WeQuota
+
+replace commands => ./bot/Commands
+
+replace utils => ./bot/utils
 
 require (
 	github.com/andybalholm/cascadia v1.3.3 // indirect

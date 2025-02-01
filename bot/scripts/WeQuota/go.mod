@@ -1,4 +1,4 @@
-module QCheckWE
+module WeQuota
 
 go 1.20
 

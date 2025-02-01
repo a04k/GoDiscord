@@ -1,4 +1,4 @@
-package QCheckWE
+package WeQuota
 
 import (
 	"encoding/json"

@@ -1,7 +1,6 @@
-package test
+package WeQuota
 
 import (
-	"QCheckWE"
 	"fmt"
 )
 
@@ -9,7 +8,7 @@ func main() {
 	landlineNumber := "YOUR_LANDLINE_NUMBER"
 	password := "YOUR_PASSWORD"
 
-	checker, err := QCheckWE.NewWeQuotaChecker(landlineNumber, password)
+	checker, err := NewWeQuotaChecker(landlineNumber, password)
 	if err != nil {
 		fmt.Println("Error:", err)
 		return

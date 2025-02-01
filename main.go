@@ -164,6 +164,40 @@ func parsePermissions(permVal string) int {
 	return perms
 }
 
+func extractRoleID(input string) string {
+	if strings.HasPrefix(input, "<@&") && strings.HasSuffix(input, ">") {
+		return input[3 : len(input)-1]
+	}
+	return input // Return as is for ID/name validation
+}
+
+// function to validate and find role
+func findRole(s *discordgo.Session, guildID string, roleInput string) (*discordgo.Role, error) {
+	roles, err := s.GuildRoles(guildID)
+	if err != nil {
+		return nil, err
+	}
+
+	cleanedInput := extractRoleID(roleInput)
+
+	// Check by ID first
+	for _, role := range roles {
+		if role.ID == cleanedInput {
+			return role, nil
+		}
+	}
+
+	// Check by name (case-insensitive)
+	cleanedInput = strings.ToLower(strings.TrimSpace(cleanedInput))
+	for _, role := range roles {
+		if strings.ToLower(role.Name) == cleanedInput {
+			return role, nil
+		}
+	}
+
+	return nil, fmt.Errorf("role not found")
+}
+
 // this fetches the highest role a mod can assign, cannot be above the users/mod's current role.
 func getHighestRole(member *discordgo.Member, roles []*discordgo.Role) *discordgo.Role {
 	var highestRole *discordgo.Role
@@ -387,6 +421,13 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 				response = noPermissionMessage
 			}
 
+		case "roleinfo", "ri":
+			if isOwner || isMod {
+				response = ".ri / roleinfo <role name or mention>\nView role information."
+			} else {
+				response = noPermissionMessage
+			}
+
 		case "ban":
 			if isOwner {
 				response = ".ban <@user> [reason] [days]\nBan a user with optional reason and days of message deletion."
@@ -426,7 +467,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 				},
 				{
 					Name:   "Admin Commands",
-					Value:  "`add <@user> <amount>` - add: Add coins to a user.\n`sa <@user>` - sa/setadmin: Promote a user to admin.\n`cr/createrole <role name> [color] [permissions] [hoist]` - Create a new role.\n`sr/setrole <@user> <role name>` - Assign role to user.\n`inrole <role name or mention>` - View users in a role.\n`ban <@user> [reason(OPTIONAL)] [days(OPTIONAL)]` - Ban a user with optional reason and days of message deletion.",
+					Value:  "`add <@user> <amount>` - add: Add coins to a user.\n`sa <@user>` - sa/setadmin: Promote a user to admin.\n`cr/createrole <role name> [color] [permissions] [hoist]` - Create a new role.\n`sr/setrole <@user> <role name>` - Assign role to user.\n`inrole <role name or mention>` - View users in a role.\n `ri/roleinfo <role name or mention>` - View role information.\n`ban <@user> [reason(OPTIONAL)] [days(OPTIONAL)]` - Ban a user with optional reason and days of message deletion.",
 					Inline: false,
 				},
 			},
@@ -472,7 +513,6 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	case "bal", "balance":
 		var targetUserID string
-
 		// Check if a mention is provided & validate
 		if len(args) >= 2 {
 			// Extract and validate the target user mention
@@ -483,21 +523,36 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 				s.ChannelMessageSend(m.ChannelID, "Invalid mention / use. Please use a proper mention (e.g., @username).")
 				return
 			}
+
+			// Check if mentioned user is in the guild
+			member, err := s.GuildMember(m.GuildID, targetUserID)
+			if err != nil || member == nil {
+				s.ChannelMessageSend(m.ChannelID, "mentioned user is not in this server.")
+				return
+			}
 		} else {
 			// If no mention is provided, use the author's ID
 			targetUserID = m.Author.ID
 		}
 
-		// Query the balance of the target user
-		var balance int
-		err := b.db.QueryRow("SELECT balance FROM users WHERE user_id = $1", targetUserID).Scan(&balance)
+		// register the user if they don't exist
+		_, err := b.db.Exec(`
+        INSERT INTO users (user_id, balance)
+        VALUES ($1, $2)
+        ON CONFLICT (user_id) DO NOTHING`,
+			targetUserID, 0)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				s.ChannelMessageSend(m.ChannelID, "User not found.")
-			} else {
-				log.Printf("Error querying balance: %v", err)
-				s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-			}
+			log.Printf("Error in user registration: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+			return
+		}
+
+		// Now query their balance (will exist due to prior insert)
+		var balance int
+		err = b.db.QueryRow("SELECT balance FROM users WHERE user_id = $1", targetUserID).Scan(&balance)
+		if err != nil {
+			log.Printf("Error querying balance: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
 			return
 		}
 
@@ -513,7 +568,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		// Check if the user exists
 		err := b.db.QueryRow("SELECT last_daily, balance FROM users WHERE user_id = $1", m.Author.ID).Scan(&lastDaily, &balance)
 		if err == sql.ErrNoRows {
-			// User doesn't exist, insert a new row
+			// User doesn't exist, insert a new row / reg user
 			_, err = b.db.Exec("INSERT INTO users (user_id, balance, last_daily) VALUES ($1, $2, NOW())", m.Author.ID, reward)
 			if err != nil {
 				log.Printf("Error inserting new user: %v", err)
@@ -1471,6 +1526,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		roleName := args[1]
 		roleColor := 0 // Default color (no color)
 		hoist := false // Default hoisting (not visible)
+		mentionable := false
 
 		// Check for optional color hex
 		if len(args) > 2 && strings.HasPrefix(args[2], "#") {
@@ -1497,9 +1553,12 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if len(args) > 4 && (strings.ToLower(args[4]) == "hoist" || strings.ToLower(args[4]) == "true" || strings.ToLower(args[4]) == "1") {
 			hoist = true // Enable hoisting if 'hoist' is provided as the 5th argument
 		}
+		if len(args) > 5 && (strings.ToLower(args[4]) == "hoist" || strings.ToLower(args[4]) == "true" || strings.ToLower(args[4]) == "1") {
+			mentionable = true // makes role mentionable if provided as a 6th arg
+		}
 
 		// perms to int64
-		permsInt64 := int64(perms) //cast ()
+		permsInt64 := int64(perms)
 
 		// executing the role creation call (GuildRoleCreate)
 		newRole, err := s.GuildRoleCreate(m.GuildID, &discordgo.RoleParams{ // roleparams requiring perms val in int64 is stupid since perms max value admin = 8
@@ -1507,6 +1566,7 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			Color:       &roleColor,  // pointer to int for color
 			Permissions: &permsInt64, // convert perms to int64 and pass a pointer
 			Hoist:       &hoist,      // using a pointer to bool for hoist (hoisting: having the role appear on the member list)
+			Mentionable: &mentionable,
 		})
 		if err != nil {
 			log.Printf("Error creating role: %v", err)
@@ -1701,8 +1761,77 @@ func (b *Bot) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 
 		s.ChannelMessageSendEmbed(m.ChannelID, embed)
+
+	case "roleinfo", "ri":
+		if len(args) < 2 {
+			s.ChannelMessageSend(m.ChannelID, "Please specify a role name, ID, or mention.")
+			return
+		}
+
+		roleInput := strings.Join(args[1:], " ")
+		targetRole, err := findRole(s, m.GuildID, roleInput)
+
+		if err != nil {
+			log.Printf("Role lookup error: %v | Input: %s", err, roleInput)
+			s.ChannelMessageSend(m.ChannelID, "Role not found or cannot be fetched.")
+			return
+		}
+
+		createdTime, _ := discordgo.SnowflakeTimestamp(targetRole.ID)
+
+		var keyPerms []string
+		perms := targetRole.Permissions
+		if perms&discordgo.PermissionAdministrator != 0 {
+			keyPerms = append(keyPerms, "Administrator")
+		}
+		if perms&discordgo.PermissionManageRoles != 0 {
+			keyPerms = append(keyPerms, "Manage Roles")
+		}
+		if perms&discordgo.PermissionManageMessages != 0 {
+			keyPerms = append(keyPerms, "Manage Messages")
+		}
+		if perms&discordgo.PermissionBanMembers != 0 {
+			keyPerms = append(keyPerms, "Ban Members")
+		}
+		if perms&discordgo.PermissionKickMembers != 0 {
+			keyPerms = append(keyPerms, "Kick Members")
+		}
+		if perms&discordgo.PermissionModerateMembers != 0 {
+			keyPerms = append(keyPerms, "Timeout Members")
+		}
+
+		permString := "No key permissions"
+		if len(keyPerms) > 0 {
+			permString = strings.Join(keyPerms, ", ")
+		}
+
+		embed := &discordgo.MessageEmbed{
+			Title: "Role Information",
+			Color: targetRole.Color,
+			Fields: []*discordgo.MessageEmbedField{
+				{Name: "ID", Value: targetRole.ID, Inline: true},
+				{Name: "Name", Value: targetRole.Name, Inline: true},
+				{Name: "Color", Value: fmt.Sprintf("#%06x", targetRole.Color), Inline: true},
+
+				{Name: "Mention", Value: fmt.Sprintf("<@&%s>", targetRole.ID), Inline: true},
+				{Name: "Hoisted", Value: map[bool]string{true: "Yes", false: "No"}[targetRole.Hoist], Inline: true},
+				{Name: "Position", Value: strconv.Itoa(targetRole.Position), Inline: true},
+
+				{Name: "Mentionable", Value: map[bool]string{true: "Yes", false: "No"}[targetRole.Mentionable], Inline: true},
+				{Name: "Managed", Value: map[bool]string{true: "Yes", false: "No"}[targetRole.Managed], Inline: true},
+				{Name: "\u200b", Value: "\u200b", Inline: true},
+
+				{Name: "Key Permissions", Value: "```\n" + permString + "\n```", Inline: false},
+				{Name: "Created At", Value: createdTime.Format("January 2, 2006"), Inline: false},
+			},
+		}
+
+		if _, err := s.ChannelMessageSendEmbed(m.ChannelID, embed); err != nil {
+			log.Printf("Failed to send roleinfo embed: %v", err)
+		}
 	}
 }
+
 func (b *Bot) handleSlashCommands(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if i.Type != discordgo.InteractionApplicationCommand {
 		return
@@ -1895,4 +2024,5 @@ func main() {
 
 	log.Println("GoBot is running. Press Ctrl+C to exit.")
 	select {}
+
 }

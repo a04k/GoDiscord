@@ -3,3 +3,4 @@ main.got
 *.exe
 gobot
 *.txt
+/bot

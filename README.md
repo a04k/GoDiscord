@@ -77,24 +77,25 @@ go run main.go
 ---
 
 ## User Commands
-| Command                              | Description                                                        |
-|--------------------------------------|--------------------------------------------------------------------|
-| `.bal / .balance`                    | Check your balance                                                 |
-| `.work`                              | Earn coins (6h cooldown)                                           |
-| `.flip <amount / all>`               | Gamble coins: (specified amount / all)                             |
-| `.transfer <@user> <amount>`         | Send coins to another user                                         |
-| `.usd [amount]`                      | USD to EGP exchange rate                                           |
-| `.btc`                               | Bitcoin price in USD                                               |
-| `/setup <landline> <password>`| Save WE credentials                                                       |
-| `/quota`                             | Check internet quota (after setup)                                 |
+| Command                              | Description                        |
+|--------------------------------------|------------------------------------|
+| `.bal / .balance`                    | Check your balance                 |
+| `.work`                              | Earn coins (6h cooldown)           |
+| `.flip <amount / all>`               | Gamble coins                       |
+| `.transfer <@user> <amount>`         | Send coins to another user         |
+| `.usd [amount]`                      | USD to EGP exchange rate           |
+| `.btc`                               | Bitcoin price in USD               |
+| `/setup <landline> <password>`       | Save WE credentials                |
+| `/quota`                             | Check internet quota               |
 
 ## Mod/Admin Commands
-| Command                              | Description                                                        |
-|--------------------------------------|--------------------------------------------------------------------|
-| `.add <@user> <amount>`              | Admin: Add coins to a user                                         |
-| `.sa <@user>`                        | Admin: Promote a user to admin                                     |
-| `.createrole <role name> [color] [permissions] [hoist]` | Create a new role with options for color, permissions, and hoisting |
-| `.setrole/sr <@user> <role name>`     | Gives the user the role                                       |
-| `.inrole <role name or mention>`     | View all users in a specific role                                       |
+| Command                              | Description                                |
+|--------------------------------------|--------------------------------------------|
+| `.add <@user> <amount>`              | Add coins to a user                        |
+| `.sa <@user>`                        | Promote a user to admin                    |
+| `.createrole/cr <role name> [...]`      | Create role with options                   |
+| `.setrole/sr <@user> <role name>`    | Assign role to user                        |
+| `.roleinfo/ri <role>`                | Show detailed role info and permissions    |
+| `.inrole <role name or mention>`     | List users in a role                       |
 
 ---

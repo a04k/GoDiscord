@@ -1,6 +1,5 @@
 .env
-main.got
 *.exe
-gobot
 *.txt
 /bot
+*.sum

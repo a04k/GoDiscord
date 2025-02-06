@@ -1842,7 +1842,6 @@ func (b *Bot) handleSlashCommands(s *discordgo.Session, i *discordgo.Interaction
 		// First try to get saved credentials
 		var landline, password string
 		err := b.db.QueryRow("SELECT landline, password FROM credentials WHERE user_id = $1", i.Member.User.ID).Scan(&landline, &password)
-
 		if err == sql.ErrNoRows {
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -1887,12 +1886,8 @@ func (b *Bot) handleSlashCommands(s *discordgo.Session, i *discordgo.Interaction
 			return
 		}
 
-		msg := fmt.Sprintf(`
-			Customer: %s
-			Plan: %s
-			Remaining: %.2f / %.2f (%s%% Used)
-			Renewed: %s
-			Expires: %s (%s)`,
+		msg := fmt.Sprintf(
+			"\nCustomer: %s\nPlan: %s\nRemaining: %.2f / %.2f (%s%% Used)\nRenewed: %s\nExpires: %s (%s)\nPredicted End: %s (%d days until renewal)",
 			quota["name"],
 			quota["offerName"],
 			quota["remaining"],
@@ -1900,7 +1895,10 @@ func (b *Bot) handleSlashCommands(s *discordgo.Session, i *discordgo.Interaction
 			quota["usagePercentage"],
 			quota["renewalDate"],
 			quota["expiryDate"],
-			quota["expiryIn"])
+			quota["expiryIn"],
+			quota["predictedEndDate"],
+			quota["daysUntilRenewal"],
+		)
 
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,

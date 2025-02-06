@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
 	"github.com/go-resty/resty/v2"
 )
 
@@ -16,6 +17,7 @@ type WeQuotaChecker struct {
 }
 
 func NewWeQuotaChecker(landlineNumber, password string) (*WeQuotaChecker, error) {
+	// Input Validation
 	if landlineNumber == "" || password == "" {
 		return nil, fmt.Errorf("landline number and password are required")
 	}
@@ -46,6 +48,32 @@ func NewWeQuotaChecker(landlineNumber, password string) (*WeQuotaChecker, error)
 		ACCTID:    acctID,
 		Session:   client,
 	}, nil
+}
+
+func (w *WeQuotaChecker) predictQuotaEndDate(total, used float64, expiryDate time.Time) (string, int) {
+	
+	daysSinceRenewal := time.Since(expiryDate.AddDate(0, 0, -30)).Hours() / 24 // 30 days is the renew cycle
+	if daysSinceRenewal <= 0 {
+		daysSinceRenewal = 1 // to avoid division by zero or negative values in initial days
+	}
+	// calc avg usage (total current quota usage / no. days since renewal)
+	usagePerDay := used / daysSinceRenewal
+
+	// if no usage, return expiry date
+	if usagePerDay <= 0 {
+		return expiryDate.Format("02/01/2006"), int(expiryDate.Sub(time.Now()).Hours() / 24)
+	}
+
+	// calculate remaining days based on predicted usage
+	remainingQuota := total - used
+	remainingDays := remainingQuota / usagePerDay
+
+	// predicted end date (truncated to day)
+	predictedEndDate := time.Now().Add(time.Duration(remainingDays*24) * time.Hour).Truncate(24 * time.Hour)
+
+	// days until renewal from predicted end date
+	daysUntilRenewal := int(expiryDate.Sub(predictedEndDate).Hours() / 24)
+	return predictedEndDate.Format("02/01/2006"), daysUntilRenewal
 }
 
 func (w *WeQuotaChecker) CheckQuota() (map[string]interface{}, error) {
@@ -100,17 +128,25 @@ func (w *WeQuotaChecker) CheckQuota() (map[string]interface{}, error) {
 		expireTimeFloat = float64(expireTimeInt)
 	}
 
-	expiryDate := w.tsConv(int64(expireTimeFloat), true)
+	expiryDateStr := w.tsConv(int64(expireTimeFloat), true)
+	expiryDate, err := time.Parse("02/01/2006 at 03:04 PM", expiryDateStr[0])
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse expiry date: %v", err)
+	}
+
+	predictedEndDate, daysUntilRenewal := w.predictQuotaEndDate(total, used, expiryDate)
 
 	return map[string]interface{}{
-		"name":            customer["custName"].(string),
-		"offerName":       quota["offerName"].(string),
-		"remaining":       quota["remain"].(float64),
-		"total":           total,
-		"usagePercentage": fmt.Sprintf("%.2f", usagePrc),
-		"renewalDate":     renewedDate,
-		"expiryDate":      expiryDate[0],
-		"expiryIn":        expiryDate[1],
+		"name":             customer["custName"].(string),
+		"offerName":        quota["offerName"].(string),
+		"remaining":        quota["remain"].(float64),
+		"total":            total,
+		"usagePercentage":  fmt.Sprintf("%.2f", usagePrc),
+		"renewalDate":      renewedDate,
+		"expiryDate":       expiryDateStr[0],
+		"expiryIn":         expiryDateStr[1],
+		"predictedEndDate": predictedEndDate,
+		"daysUntilRenewal": daysUntilRenewal,
 	}, nil
 }
 
@@ -170,9 +206,9 @@ func (w *WeQuotaChecker) authenticate() (map[string]interface{}, error) {
 func (w *WeQuotaChecker) getSubscribedOfferings(token string) (string, error) {
 	offersResponse, err := w.Session.R().
 		SetBody(map[string]interface{}{
-			"msisdn":           w.ACCTID,
+			"msisdn":            w.ACCTID,
 			"numberServiceType": "FBB",
-			"groupId":          "",
+			"groupId":           "",
 		}).
 		SetHeader("csrftoken", token).
 		Post("/echannel/service/besapp/base/rest/busiservice/cz/v1/auth/getSubscribedOfferings")

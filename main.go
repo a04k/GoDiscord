@@ -92,8 +92,9 @@ func main() {
 			slash.WEQuota(bot, s, i)
 		case "wesetup":
 			slash.WEAccountSetup(bot, s, i)
+		case "f1sched":
+			slash.F1Schedule(bot, s, i)
 		}
-		
 	})
 
 	err = bot.Client.Open()

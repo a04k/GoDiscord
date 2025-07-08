@@ -1,8 +1,6 @@
 package slash
 
 import (
-	"database/sql"
-	"fmt"
 	"log"
 
 	"DiscordBot/bot"

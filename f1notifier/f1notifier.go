@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"

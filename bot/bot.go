@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS credentials (
 
 CREATE TABLE IF NOT EXISTS f1_subscriptions (
     user_id TEXT PRIMARY KEY
-);``
+);`
 
 func NewBot(token string, dbURL string) (*Bot, error) {
 	client, err := discordgo.New("Bot " + token)

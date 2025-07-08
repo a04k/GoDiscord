@@ -1,7 +1,6 @@
 .env
 *.exe
 *.txt
-/bot
 *.sum
 /gobot
 *.pem

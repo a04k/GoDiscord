@@ -28,8 +28,8 @@ func RegisterCommands(s *discordgo.Session, guildID string) {
 	// Define new commands
 	commands := []*discordgo.ApplicationCommand{
 		{
-			Name:        "f1sched",
-			Description: "Get the next F1 race schedule",
+			Name:        "f1",
+			Description: "Toggle F1 weekend and session notifications",
 		},
 		{
 			Name:        "wequota",

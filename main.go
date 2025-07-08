@@ -12,6 +12,8 @@ import (
 	"DiscordBot/commands/moderation"
 	"DiscordBot/commands/roles"
 	"DiscordBot/commands/slash"
+	"DiscordBot/f1notifier"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
 )
@@ -92,8 +94,8 @@ func main() {
 			slash.WEQuota(bot, s, i)
 		case "wesetup":
 			slash.WEAccountSetup(bot, s, i)
-		case "f1sched":
-			slash.F1Schedule(bot, s, i)
+		case "f1":
+			slash.F1SubscriptionToggle(bot, s, i)
 		}
 	})
 
@@ -104,6 +106,10 @@ func main() {
 
 	// Register slash commands
 	slash.RegisterCommands(bot.Client, "")
+
+	// Start F1 Notifier
+	f1Notifier := f1notifier.NewF1Notifier(bot.Client, bot.Db)
+	go f1Notifier.Start()
 
 	defer bot.Client.Close()
 

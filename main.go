@@ -90,8 +90,11 @@ func main() {
 		switch i.ApplicationCommandData().Name {
 		case "quota":
 			slash.Quota(bot, s, i)
-		case "setup":
-			slash.Setup(bot, s, i)
+		case "quotasetup":
+			slash.WeAccountSetup(bot, s, i)
+   	case "f1sched":
+      slash.F1Schedule(bot, s, i)
+
 		}
 	})
 
@@ -103,6 +106,5 @@ func main() {
 	defer bot.Client.Close()
 
 	log.Println("Bot is now running. Press CTRL-C to exit.")
-	// Wait here until the program is interrupted
 	select {}
 }

@@ -8,7 +8,7 @@ import (
 	"QCheckWE"
 )
 
-func Setup(b *bot.Bot, s *discordgo.Session, i *discordgo.InteractionCreate) {
+func WeAccountSetup(b *bot.Bot, s *discordgo.Session, i *discordgo.InteractionCreate) {
 	options := i.ApplicationCommandData().Options
 	landline := options[0].StringValue()
 	password := options[1].StringValue()

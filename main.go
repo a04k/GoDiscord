@@ -5,8 +5,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
-	"github.com/joho/godotenv"
 	"DiscordBot/bot"
 	"DiscordBot/commands"
 	"DiscordBot/commands/admin"
@@ -14,6 +12,8 @@ import (
 	"DiscordBot/commands/moderation"
 	"DiscordBot/commands/roles"
 	"DiscordBot/commands/slash"
+	"github.com/bwmarrin/discordgo"
+	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -101,6 +101,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("error opening connection to Discord: %v", err)
 	}
+
+	// Register slash commands
+	slash.RegisterCommands(bot.Client, "")
 
 	defer bot.Client.Close()
 

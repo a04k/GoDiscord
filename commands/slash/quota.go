@@ -9,7 +9,7 @@ import (
 	"QCheckWE"
 )
 
-func Quota(b *bot.Bot, s *discordgo.Session, i *discordgo.InteractionCreate) {
+func WEQuota(b *bot.Bot, s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// First try to get saved credentials
 	var landline, password string
 	err := b.Db.QueryRow("SELECT landline, password FROM credentials WHERE user_id = $1", i.Member.User.ID).Scan(&landline, &password)

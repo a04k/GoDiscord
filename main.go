@@ -88,14 +88,12 @@ func main() {
 		}
 
 		switch i.ApplicationCommandData().Name {
-		case "quota":
-			slash.Quota(bot, s, i)
-		case "quotasetup":
-			slash.WeAccountSetup(bot, s, i)
-   	case "f1sched":
-      slash.F1Schedule(bot, s, i)
-
+		case "wequota":
+			slash.WEQuota(bot, s, i)
+		case "wesetup":
+			slash.WEAccountSetup(bot, s, i)
 		}
+		
 	})
 
 	err = bot.Client.Open()

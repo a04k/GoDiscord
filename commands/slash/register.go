@@ -6,7 +6,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// RegisterCommands registers and updates slash commands.
+// registers and updates slash commands.
 func RegisterCommands(s *discordgo.Session, guildID string) {
 	log.Println("Registering slash commands...")
 
@@ -16,17 +16,8 @@ func RegisterCommands(s *discordgo.Session, guildID string) {
 		log.Fatalf("Could not fetch existing commands: %v", err)
 	}
 
-	// Delete all existing commands
-	for _, cmd := range existingCommands {
-		err := s.ApplicationCommandDelete(s.State.User.ID, guildID, cmd.ID)
-		if err != nil {
-			log.Fatalf("Could not delete command %q: %v", cmd.Name, err)
-		}
-		log.Printf("Deleted command: %s", cmd.Name)
-	}
-
-	// Define new commands
-	commands := []*discordgo.ApplicationCommand{
+	// Define the commands we want
+	desiredCommands := []*discordgo.ApplicationCommand{
 		{
 			Name:        "f1",
 			Description: "Toggle F1 weekend and session notifications",
@@ -55,14 +46,92 @@ func RegisterCommands(s *discordgo.Session, guildID string) {
 		},
 	}
 
-	// Register new commands
-	for _, cmd := range commands {
-		_, err := s.ApplicationCommandCreate(s.State.User.ID, guildID, cmd)
-		if err != nil {
-			log.Fatalf("Cannot create slash command %q: %v", cmd.Name, err)
+	// Create a map of existing commands for easy lookup
+	existingCommandMap := make(map[string]*discordgo.ApplicationCommand)
+	for _, cmd := range existingCommands {
+		existingCommandMap[cmd.Name] = cmd
+	}
+
+	// Process each desired command
+	for _, desiredCmd := range desiredCommands {
+		existingCmd, exists := existingCommandMap[desiredCmd.Name]
+		
+		if !exists {
+			// Command doesn't exist, create it
+			_, err := s.ApplicationCommandCreate(s.State.User.ID, guildID, desiredCmd)
+			if err != nil {
+				log.Fatalf("Cannot create slash command %q: %v", desiredCmd.Name, err)
+			}
+			log.Printf("Created command: %s", desiredCmd.Name)
+		} else {
+			// Command exists, check if it needs to be updated
+			if commandNeedsUpdate(existingCmd, desiredCmd) {
+				// Delete the existing command
+				err := s.ApplicationCommandDelete(s.State.User.ID, guildID, existingCmd.ID)
+				if err != nil {
+					log.Fatalf("Could not delete command %q: %v", existingCmd.Name, err)
+				}
+				log.Printf("Deleted outdated command: %s", existingCmd.Name)
+				
+				// Create the updated command
+				_, err = s.ApplicationCommandCreate(s.State.User.ID, guildID, desiredCmd)
+				if err != nil {
+					log.Fatalf("Cannot create updated slash command %q: %v", desiredCmd.Name, err)
+				}
+				log.Printf("Created updated command: %s", desiredCmd.Name)
+			} else {
+				// Command is up to date
+				log.Printf("Command %s is already up to date", desiredCmd.Name)
+			}
 		}
-		log.Printf("Created command: %s", cmd.Name)
+	}
+
+	// Check for commands that should be removed (exist but are not desired)
+	for _, existingCmd := range existingCommands {
+		found := false
+		for _, desiredCmd := range desiredCommands {
+			if existingCmd.Name == desiredCmd.Name {
+				found = true
+				break
+			}
+		}
+		
+		if !found {
+			// This command should be removed
+			err := s.ApplicationCommandDelete(s.State.User.ID, guildID, existingCmd.ID)
+			if err != nil {
+				log.Fatalf("Could not delete obsolete command %q: %v", existingCmd.Name, err)
+			}
+			log.Printf("Deleted obsolete command: %s", existingCmd.Name)
+		}
 	}
 
 	log.Println("Slash commands registered successfully.")
+}
+
+// commandNeedsUpdate checks if an existing command needs to be updated
+func commandNeedsUpdate(existing, desired *discordgo.ApplicationCommand) bool {
+	// Check basic properties
+	if existing.Description != desired.Description {
+		return true
+	}
+	
+	// Check options count
+	if len(existing.Options) != len(desired.Options) {
+		return true
+	}
+	
+	// Check each option
+	for i, existingOption := range existing.Options {
+		desiredOption := desired.Options[i]
+		
+		if existingOption.Type != desiredOption.Type ||
+			existingOption.Name != desiredOption.Name ||
+			existingOption.Description != desiredOption.Description ||
+			existingOption.Required != desiredOption.Required {
+			return true
+		}
+	}
+	
+	return false
 }

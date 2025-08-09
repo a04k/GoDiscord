@@ -72,6 +72,13 @@ func Help(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 			response = noPermissionMessage
 		}
 
+	case "take":
+		if isOwner {
+			response = ".take <@user> <amount>\nAdmin: Remove coins from a user."
+		} else {
+			response = noPermissionMessage
+		}
+
 	case "sa":
 		if isOwner {
 			response = ".sa <@user>\nAdmin: Promote a user to admin."

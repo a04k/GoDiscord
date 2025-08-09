@@ -79,6 +79,8 @@ func main() {
 			admin.SetAdmin(bot, s, m, args)
 		case "add":
 			admin.Add(bot, s, m, args)
+		case "take":
+			admin.Take(bot, s, m, args)
 		case "createrole", "cr":
 			roles.CreateRole(bot, s, m, args)
 		case "setrole", "sr":

@@ -24,7 +24,7 @@ func CommandList(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, a
 			},
 			{
 				Name:   "Admin Commands",
-				Value:  "`add <@user> <amount>` - add: Add coins to a user.\n`sa <@user>` - sa/setadmin: Promote a user to admin.\n`cr/createrole <role name> [color] [permissions] [hoist]` - Create a new role.\n`sr/setrole <@user> <role name>` - Assign role to user.\n`inrole <role name or mention>` - View users in a role.\n `ri/roleinfo <role name or mention>` - View role information.\n`ban <@user> [reason(OPTIONAL)] [days(OPTIONAL)]` - Ban a user with optional reason and days of message deletion.",
+				Value:  "`add <@user> <amount>` - add: Add coins to a user.\n`take <@user> <amount>` - take: Remove coins from a user.\n`sa <@user>` - sa/setadmin: Promote a user to admin.\n`cr/createrole <role name> [color] [permissions] [hoist]` - Create a new role.\n`sr/setrole <@user> <role name>` - Assign role to user.\n`inrole <role name or mention>` - View users in a role.\n `ri/roleinfo <role name or mention>` - View role information.\n`ban <@user> [reason(OPTIONAL)] [days(OPTIONAL)]` - Ban a user with optional reason and days of message deletion.",
 				Inline: false,
 			},
 		},

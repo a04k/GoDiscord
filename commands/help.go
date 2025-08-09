@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
 	"DiscordBot/utils"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 func Help(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
@@ -74,7 +75,8 @@ func Help(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 
 	case "take":
 		if isOwner {
-			response = ".take <@user> <amount>\nAdmin: Remove coins from a user."
+			response = `.take <@user> <amount|all>
+				Admin: Remove coins from a user (use 'all' to take all coins).`
 		} else {
 			response = noPermissionMessage
 		}

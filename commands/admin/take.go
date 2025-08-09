@@ -12,7 +12,7 @@ import (
 
 func Take(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	if len(args) < 3 {
-		s.ChannelMessageSend(m.ChannelID, "Usage: .take <@user> <amount>")
+		s.ChannelMessageSend(m.ChannelID, "Usage: .take <@user> <amount|all>")
 		return
 	}
 
@@ -36,17 +36,7 @@ func Take(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 		return
 	}
 
-	// Extract the amount
-	amount := 0
-	fmt.Sscanf(args[2], "%d", &amount)
-
-	// Validate amount
-	if amount <= 0 {
-		s.ChannelMessageSend(m.ChannelID, "Amount must be greater than 0.")
-		return
-	}
-
-	// Check if the recipient exists
+	// Get the recipient's balance
 	var recipientBalance int
 	err = b.Db.QueryRow("SELECT balance FROM users WHERE user_id = $1", recipientID).Scan(&recipientBalance)
 	if err != nil {
@@ -61,8 +51,21 @@ func Take(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 		}
 	}
 
-	// Check if the recipient has enough coins
-	if recipientBalance < amount {
+	// Handle "all" case by setting amount to the recipient's total balance
+	amount := 0
+	if args[2] == "all" {
+		amount = recipientBalance
+	} else {
+		// Parse the amount
+		_, err = fmt.Sscanf(args[2], "%d", &amount)
+		if err != nil || amount <= 0 {
+			s.ChannelMessageSend(m.ChannelID, "Invalid amount. Usage: .take <@user> <amount|all>")
+			return
+		}
+	}
+
+	// Check if the recipient has enough coins (only needed for specific amounts, not "all")
+	if args[2] != "all" && recipientBalance < amount {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("User <@%s> only has %d coins, cannot take %d.", recipientID, recipientBalance, amount))
 		return
 	}
@@ -75,5 +78,9 @@ func Take(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 		return
 	}
 
-	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Took %d coins from <@%s>", amount, recipientID))
+	if args[2] == "all" {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Took all %d coins from <@%s>", amount, recipientID))
+	} else {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Took %d coins from <@%s>", amount, recipientID))
+	}
 }

@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
 	"sort"
 	"time"
 
@@ -13,26 +15,23 @@ import (
 )
 
 const (
-	f1APIURL           = "https://api.openf1.org/v1/meetings"
 	checkInterval      = 1 * time.Hour    // Check for new schedules every hour
 	notificationOffset = 30 * time.Minute // Notify 30 minutes before a session
 )
 
-// Meeting represents a single F1 meeting (Grand Prix weekend) from OpenF1 API.
-type Meeting struct {
-	MeetingName string    `json:"meeting_name"`
-	Location    string    `json:"location"`
-	CountryName string    `json:"country_name"`
-	DateStart   string    `json:"date_start"`
-	DateEnd     string    `json:"date_end"`
-	Sessions    []Session `json:"sessions"`
+// Event represents a single F1 event (Grand Prix) from our schedule.
+type Event struct {
+	Name     string    `json:"name"`
+	Location string    `json:"location"`
+	Circuit  string    `json:"circuit"`
+	Sessions []Session `json:"sessions"`
 }
 
-// Session represents a single session within an F1 meeting.
+// Session represents a single session within an F1 event.
 type Session struct {
-	SessionName string `json:"session_name"`
-	DateStart   string `json:"date_start"`
-	DateEnd     string `json:"date_end"`
+	Type string `json:"type"`
+	Name string `json:"name"`
+	Date string `json:"date"`
 }
 
 // F1Notifier holds the Discord session, database connection, and notification state.
@@ -40,7 +39,7 @@ type F1Notifier struct {
 	Session             *discordgo.Session
 	DB                  *sql.DB
 	lastNotifiedSession map[string]time.Time // Map session ID to last notification time
-	lastNotifiedWeekend map[string]time.Time // Map meeting ID to last notification time
+	lastNotifiedEvent   map[string]time.Time // Map event ID to last notification time
 }
 
 // NewF1Notifier creates a new F1Notifier instance.
@@ -49,7 +48,7 @@ func NewF1Notifier(s *discordgo.Session, db *sql.DB) *F1Notifier {
 		Session:             s,
 		DB:                  db,
 		lastNotifiedSession: make(map[string]time.Time),
-		lastNotifiedWeekend: make(map[string]time.Time),
+		lastNotifiedEvent:   make(map[string]time.Time),
 	}
 }
 
@@ -69,51 +68,60 @@ func (fn *F1Notifier) Start() {
 func (fn *F1Notifier) checkAndNotify() {
 	log.Println("Checking for upcoming F1 sessions...")
 
-	meetings, err := fetchF1Meetings()
+	events, err := FetchF1Events()
 	if err != nil {
-		log.Printf("Error fetching F1 meetings: %v", err)
+		log.Printf("Error fetching F1 events: %v", err)
 		return
 	}
 
 	now := time.Now().UTC()
 
-	// Notify for upcoming weekends
-	for _, meeting := range meetings {
-		meetingStartTime, err := time.Parse(time.RFC3339, meeting.DateStart)
+	// Notify for upcoming events (race weekends)
+	for _, event := range events {
+		if len(event.Sessions) == 0 {
+			continue
+		}
+		
+		// Get the first session of the event (typically Practice 1)
+		firstSession := event.Sessions[0]
+		eventStartTime, err := time.Parse(time.RFC3339, firstSession.Date)
 		if err != nil {
-			log.Printf("Error parsing meeting start date for %s: %v", meeting.MeetingName, err)
+			log.Printf("Error parsing event start date for %s: %v", event.Name, err)
 			continue
 		}
 
-		// Notify 24 hours before the weekend starts
-		if meetingStartTime.After(now) && meetingStartTime.Before(now.Add(24*time.Hour)) {
-			if _, ok := fn.lastNotifiedWeekend[meeting.MeetingName]; !ok {
+		// Notify 24 hours before the event starts
+		if eventStartTime.After(now) && eventStartTime.Before(now.Add(24*time.Hour)) {
+			eventID := fmt.Sprintf("%s-%s", event.Name, firstSession.Date)
+			if _, ok := fn.lastNotifiedEvent[eventID]; !ok {
 				fn.notifySubscribers(fmt.Sprintf(`
-Upcoming F1 Weekend: **%s** in %s, %s
+Upcoming F1 Event: **%s**
+Location: %s
+Circuit: %s
 Starts: <t:%d:F> (<t:%d:R>)`,
-					meeting.MeetingName, meeting.Location, meeting.CountryName, meetingStartTime.Unix(), meetingStartTime.Unix(),
+					event.Name, event.Location, event.Circuit, eventStartTime.Unix(), eventStartTime.Unix(),
 				))
-				fn.lastNotifiedWeekend[meeting.MeetingName] = now
+				fn.lastNotifiedEvent[eventID] = now
 			}
 		}
 	}
 
 	// Notify for upcoming sessions
-	for _, meeting := range meetings {
-		for _, session := range meeting.Sessions {
-			sessionStartTime, err := time.Parse(time.RFC3339, session.DateStart)
+	for _, event := range events {
+		for _, session := range event.Sessions {
+			sessionTime, err := time.Parse(time.RFC3339, session.Date)
 			if err != nil {
-				log.Printf("Error parsing session start date for %s: %v", session.SessionName, err)
+				log.Printf("Error parsing session date for %s: %v", session.Name, err)
 				continue
 			}
 
 			// Notify 30 minutes before each session
-			if sessionStartTime.After(now) && sessionStartTime.Before(now.Add(notificationOffset)) {
-				sessionID := fmt.Sprintf("%s-%s", meeting.MeetingName, session.SessionName)
+			if sessionTime.After(now) && sessionTime.Before(now.Add(notificationOffset)) {
+				sessionID := fmt.Sprintf("%s-%s", event.Name, session.Name)
 				if _, ok := fn.lastNotifiedSession[sessionID]; !ok {
 					fn.notifySubscribers(fmt.Sprintf(`
-F1 Session Reminder: **%s** of %s starts in 30 minutes! (<t:%d:R>)`,
-						session.SessionName, meeting.MeetingName, sessionStartTime.Unix(),
+F1 Session Reminder: **%s** (%s) starts in 30 minutes! (<t:%d:R>)`,
+						session.Name, event.Name, sessionTime.Unix(),
 					))
 					fn.lastNotifiedSession[sessionID] = now
 				}
@@ -137,23 +145,18 @@ func (fn *F1Notifier) notifySubscribers(message string) {
 			continue
 		}
 
-		user, err := fn.Session.User(userID)
+		// Create DM channel and send message
+		channel, err := fn.Session.UserChannelCreate(userID)
 		if err != nil {
-			log.Printf("Error fetching user %s: %v", userID, err)
-			continue
-		}
-
-		channel, err := fn.Session.UserChannelCreate(user.ID)
-		if err != nil {
-			log.Printf("Error creating DM channel for user %s: %v", user.Username, err)
+			log.Printf("Error creating DM channel for user %s: %v", userID, err)
 			continue
 		}
 
 		_, err = fn.Session.ChannelMessageSend(channel.ID, message)
 		if err != nil {
-			log.Printf("Error sending DM to user %s: %v", user.Username, err)
+			log.Printf("Error sending DM to user %s: %v", userID, err)
 		} else {
-			log.Printf("Sent F1 notification to %s", user.Username)
+			log.Printf("Sent F1 notification to user %s", userID)
 		}
 	}
 
@@ -162,29 +165,33 @@ func (fn *F1Notifier) notifySubscribers(message string) {
 	}
 }
 
-func fetchF1Meetings() ([]Meeting, error) {
-	resp, err := http.Get(f1APIURL)
+// FetchF1Events reads the F1 schedule from the local JSON file.
+func FetchF1Events() ([]Event, error) {
+	// Get the directory of the current file
+	_, filename, _, _ := runtime.Caller(0)
+	dir := filepath.Dir(filename)
+	
+	// Read the JSON file
+	jsonFile, err := os.ReadFile(filepath.Join(dir, "f1_schedule_2025.json"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch F1 meetings: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("F1 API returned non-200 status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("failed to read F1 schedule file: %w", err)
 	}
 
-	var meetings []Meeting
-	err = json.NewDecoder(resp.Body).Decode(&meetings)
+	var events []Event
+	err = json.Unmarshal(jsonFile, &events)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding F1 meetings: %w", err)
+		return nil, fmt.Errorf("error decoding F1 events: %w", err)
 	}
 
-	// Sort meetings by start date to easily find the next one
-	sort.Slice(meetings, func(i, j int) bool {
-		timeI, _ := time.Parse(time.RFC3339, meetings[i].DateStart)
-		timeJ, _ := time.Parse(time.RFC3339, meetings[j].DateStart)
+	// Sort events by the date of their first session
+	sort.Slice(events, func(i, j int) bool {
+		if len(events[i].Sessions) == 0 || len(events[j].Sessions) == 0 {
+			return false
+		}
+		timeI, _ := time.Parse(time.RFC3339, events[i].Sessions[0].Date)
+		timeJ, _ := time.Parse(time.RFC3339, events[j].Sessions[0].Date)
 		return timeI.Before(timeJ)
 	})
 
-	return meetings, nil
+	return events, nil
 }

@@ -49,6 +49,15 @@ func Help(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 	case "btc":
 		response = ".btc\nBitcoin price in USD."
 
+	case "f1":
+		response = ".f1\nView next F1 event and details."
+
+	case "nextf1session":
+		response = ".nextf1session\nView next F1 session with time."
+
+	case "f1sub":
+		response = ".f1sub\nSubscribe/unsubscribe to F1 notifications (DM only)."
+
 	case "setup":
 		response = "/setup <landline> <password>\nSave WE credentials."
 

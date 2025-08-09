@@ -55,6 +55,12 @@ func main() {
 			economy.Transfer(bot, s, m, args)
 		case "flip":
 			economy.Flip(bot, s, m, args)
+		case "f1":
+			commands.F1(bot, s, m, args)
+		case "nextf1session":
+			commands.NextF1Session(bot, s, m, args)
+		case "f1sub":
+			commands.F1Subscribe(bot, s, m, args)
 		case "kick":
 			admin.Kick(bot, s, m, args)
 		case "mute", "m":

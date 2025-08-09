@@ -14,7 +14,7 @@ func CommandList(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, a
 		Fields: []*discordgo.MessageEmbedField{
 			{
 				Name:   "User Commands",
-				Value:  "`bal / balance` - Check your balance.\n`work` - Earn coins (6h cooldown).\n`flip <amount / all>` - Gamble coins.\n`transfer <@user> <amount>` - Send coins to another user.\n`usd [amount]` - USD to EGP exchange rate.\n`btc` - Bitcoin price in USD.\n`/setup <landline> <password>` - Save WE credentials.\n`/quota` - Check internet quota (after setup).",
+				Value:  "`bal / balance` - Check your balance.\n`work` - Earn coins (6h cooldown).\n`flip <amount / all>` - Gamble coins.\n`transfer <@user> <amount>` - Send coins to another user.\n`usd [amount]` - USD to EGP exchange rate.\n`btc` - Bitcoin price in USD.\n`f1` - View next F1 event and details.\n`nextf1session` - View next F1 session with time.\n`f1sub` - Subscribe/unsubscribe to F1 notifications (DM only).\n`/f1` - Toggle F1 notifications (slash command).\n`/setup <landline> <password>` - Save WE credentials.\n`/quota` - Check internet quota (after setup).",
 				Inline: false,
 			},
 			{

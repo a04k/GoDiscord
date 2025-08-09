@@ -1,32 +1,32 @@
-package slash
+package commands
 
 import (
 	"log"
 
-	"DiscordBot/bot"
-
 	"github.com/bwmarrin/discordgo"
+	"DiscordBot/bot"
 )
 
-func F1SubscriptionToggle(b *bot.Bot, s *discordgo.Session, i *discordgo.InteractionCreate) {
-	// For slash commands, we need to get the user ID differently
-	userID := i.Member.User.ID
-	if userID == "" {
-		// If it's a DM, get the user ID from the user object
-		userID = i.User.ID
+func F1Subscribe(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
+	// Check if this is a DM
+	channel, err := s.Channel(m.ChannelID)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "Error checking channel type.")
+		return
 	}
 
+	if channel.Type != discordgo.ChannelTypeDM {
+		s.ChannelMessageSend(m.ChannelID, "This command can only be used in DMs. Please DM the bot to subscribe to F1 notifications.")
+		return
+	}
+
+	userID := m.Author.ID
+
 	var exists bool
-	err := b.Db.QueryRow("SELECT EXISTS(SELECT 1 FROM f1_subscriptions WHERE user_id = $1)", userID).Scan(&exists)
+	err = b.Db.QueryRow("SELECT EXISTS(SELECT 1 FROM f1_subscriptions WHERE user_id = $1)", userID).Scan(&exists)
 	if err != nil {
 		log.Printf("Error checking F1 subscription status for user %s: %v", userID, err)
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "An error occurred while checking your subscription status.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
+		s.ChannelMessageSend(m.ChannelID, "An error occurred while checking your subscription status.")
 		return
 	}
 
@@ -51,11 +51,5 @@ func F1SubscriptionToggle(b *bot.Bot, s *discordgo.Session, i *discordgo.Interac
 		}
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: responseContent,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
+	s.ChannelMessageSend(m.ChannelID, responseContent)
 }

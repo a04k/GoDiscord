@@ -71,7 +71,46 @@ func main() {
 		log.Fatal("Failed to check if name column exists in disabled_commands:", err)
 	}
 
-	if guildIDExists && nameColumnExists {
+	// Check if is_owner column exists
+	var isOwnerExists bool
+	err = tx.QueryRow(`
+		SELECT EXISTS(
+			SELECT 1 
+			FROM information_schema.columns 
+			WHERE table_name = 'users' AND column_name = 'is_owner'
+		)
+	`).Scan(&isOwnerExists)
+	if err != nil {
+		log.Fatal("Failed to check if is_owner column exists:", err)
+	}
+
+	// Check if command_config table exists
+	var commandConfigExists bool
+	err = tx.QueryRow(`
+		SELECT EXISTS(
+			SELECT 1 
+			FROM information_schema.tables 
+			WHERE table_name = 'command_config'
+		)
+	`).Scan(&commandConfigExists)
+	if err != nil {
+		log.Fatal("Failed to check if command_config table exists:", err)
+	}
+
+	// Check if category_config table exists
+	var categoryConfigExists bool
+	err = tx.QueryRow(`
+		SELECT EXISTS(
+			SELECT 1 
+			FROM information_schema.tables 
+			WHERE table_name = 'category_config'
+		)
+	`).Scan(&categoryConfigExists)
+	if err != nil {
+		log.Fatal("Failed to check if category_config table exists:", err)
+	}
+
+	if guildIDExists && nameColumnExists && isOwnerExists && commandConfigExists && categoryConfigExists {
 		fmt.Println("Database appears to be already migrated. Exiting.")
 		return
 	}
@@ -139,6 +178,18 @@ func main() {
 		`)
 		if err != nil {
 			log.Fatal("Failed to set guild_id as NOT NULL:", err)
+		}
+	}
+
+	// Add is_owner column if it doesn't exist
+	if !isOwnerExists {
+		fmt.Println("Adding is_owner column to users table...")
+		_, err = tx.Exec(`
+			ALTER TABLE users 
+			ADD COLUMN is_owner BOOLEAN DEFAULT FALSE
+		`)
+		if err != nil {
+			log.Fatal("Failed to add is_owner column:", err)
 		}
 	}
 
@@ -214,6 +265,40 @@ func main() {
 			if err != nil {
 				log.Fatal("Failed to create disabled_commands table:", err)
 			}
+		}
+	}
+
+	// Create command_config table if it doesn't exist
+	if !commandConfigExists {
+		fmt.Println("Creating command_config table...")
+		_, err = tx.Exec(`
+			CREATE TABLE command_config (
+				guild_id TEXT NOT NULL,
+				command_name TEXT NOT NULL,
+				category TEXT NOT NULL,
+				enabled BOOLEAN DEFAULT TRUE,
+				custom_alias TEXT,
+				PRIMARY KEY (guild_id, command_name)
+			)
+		`)
+		if err != nil {
+			log.Fatal("Failed to create command_config table:", err)
+		}
+	}
+
+	// Create category_config table if it doesn't exist
+	if !categoryConfigExists {
+		fmt.Println("Creating category_config table...")
+		_, err = tx.Exec(`
+			CREATE TABLE category_config (
+				guild_id TEXT NOT NULL,
+				category TEXT NOT NULL,
+				enabled BOOLEAN DEFAULT TRUE,
+				PRIMARY KEY (guild_id, category)
+			)
+		`)
+		if err != nil {
+			log.Fatal("Failed to create category_config table:", err)
 		}
 	}
 

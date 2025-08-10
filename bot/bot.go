@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS users (
     last_daily TIMESTAMP,
     is_admin BOOLEAN DEFAULT FALSE,
     is_mod BOOLEAN DEFAULT FALSE,
+    is_owner BOOLEAN DEFAULT FALSE,
     PRIMARY KEY (guild_id, user_id)
 );
 
@@ -48,6 +49,22 @@ CREATE TABLE IF NOT EXISTS disabled_commands (
     name TEXT NOT NULL,
     type TEXT NOT NULL,
     PRIMARY KEY (guild_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS command_config (
+    guild_id TEXT NOT NULL,
+    command_name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    enabled BOOLEAN DEFAULT TRUE,
+    custom_alias TEXT,
+    PRIMARY KEY (guild_id, command_name)
+);
+
+CREATE TABLE IF NOT EXISTS category_config (
+    guild_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    enabled BOOLEAN DEFAULT TRUE,
+    PRIMARY KEY (guild_id, category)
 );`
 
 func NewBot(token string, dbURL string) (*Bot, error) {

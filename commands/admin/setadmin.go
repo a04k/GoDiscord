@@ -21,21 +21,21 @@ func SetAdmin(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args
 		return
 	}
 
-	isAdmin, err := utils.IsAdmin(b.Db, m.Author.ID)
+	isOwner, err := utils.IsOwner(b.Db, m.GuildID, m.Author.ID)
 	if err != nil {
-		log.Printf("Error checking admin status: %v", err)
+		log.Printf("Error checking owner status: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
 		return
 	}
-	if !isAdmin {
-		s.ChannelMessageSend(m.ChannelID, "You are not authorized to use this command.")
+	if !isOwner {
+		s.ChannelMessageSend(m.ChannelID, "You must be the server owner to use this command.")
 		return
 	}
 
 	recipient := strings.TrimPrefix(strings.TrimSuffix(args[1], ">"), "<@")
 
 	// Promote the user to admin
-	_, err = b.Db.Exec("UPDATE users SET is_admin = TRUE WHERE user_id = $1", recipient)
+	_, err = b.Db.Exec("INSERT INTO users (guild_id, user_id, is_admin) VALUES ($1, $2, TRUE) ON CONFLICT (guild_id, user_id) DO UPDATE SET is_admin = TRUE", m.GuildID, recipient)
 	if err != nil {
 		log.Printf("Error promoting user: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")

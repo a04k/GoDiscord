@@ -22,7 +22,7 @@ func Add(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []st
 	}
 
 	// Check if the user is an admin
-	isAdmin, err := utils.IsAdmin(b.Db, m.Author.ID)
+	isAdmin, err := utils.IsAdmin(b.Db, m.GuildID, m.Author.ID)
 	if err != nil {
 		log.Printf("Error checking admin status: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")

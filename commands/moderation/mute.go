@@ -24,7 +24,7 @@ func Mute(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 		return
 	}
 
-	isOwner, err := utils.IsAdmin(b.Db, m.Author.ID)
+	isOwner, err := utils.IsAdmin(b.Db, m.GuildID, m.Author.ID)
 	if err != nil {
 		log.Printf("Error checking admin status: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")

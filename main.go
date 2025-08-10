@@ -40,7 +40,7 @@ func main() {
 				cmd := strings.ToLower(args[0][1:])
 				// Add commands that are allowed in DMs
 				allowedDMCommands := map[string]bool{
-					"f1": true, "f1results": true, "f1standings": true, "f1wdc": true, 
+					"f1": true, "f1results": true, "f1standings": true, "f1wdc": true,
 					"f1wcc": true, "qualiresults": true, "nextf1session": true, "f1sub": true,
 				}
 				if !allowedDMCommands[cmd] {
@@ -53,38 +53,15 @@ func main() {
 
 		// When a message is sent in a guild, ensure the user exists in the database
 		if m.GuildID != "" {
-			// Check if this is the guild owner by comparing with the guild's owner ID
-			guild, err := s.State.Guild(m.GuildID)
+			// Ensure the user exists in the database
+			_, err = bot.Db.Exec(`
+				INSERT INTO users (guild_id, user_id)
+				VALUES ($1, $2)
+				ON CONFLICT (guild_id, user_id)
+				DO NOTHING`,
+				m.GuildID, m.Author.ID)
 			if err != nil {
-				// If not in state cache, fetch from API
-				guild, err = s.Guild(m.GuildID)
-				if err != nil {
-					log.Printf("Error getting guild %s: %v", m.GuildID, err)
-				}
-			}
-			
-			if guild != nil && guild.OwnerID == m.Author.ID {
-				// This user is the guild owner, ensure they're marked as owner in the database
-				_, err = bot.Db.Exec(`
-					INSERT INTO users (guild_id, user_id, is_owner) 
-					VALUES ($1, $2, TRUE) 
-					ON CONFLICT (guild_id, user_id) 
-					DO UPDATE SET is_owner = TRUE`,
-					m.GuildID, m.Author.ID)
-				if err != nil {
-					log.Printf("Error setting owner status for user %s in guild %s: %v", m.Author.ID, m.GuildID, err)
-				}
-			} else {
-				// Ensure the user exists in the database
-				_, err = bot.Db.Exec(`
-					INSERT INTO users (guild_id, user_id) 
-					VALUES ($1, $2) 
-					ON CONFLICT (guild_id, user_id) 
-					DO NOTHING`,
-					m.GuildID, m.Author.ID)
-				if err != nil {
-					log.Printf("Error ensuring user %s exists in guild %s: %v", m.Author.ID, m.GuildID, err)
-				}
+				log.Printf("Error ensuring user %s exists in guild %s: %v", m.Author.ID, m.GuildID, err)
 			}
 		}
 
@@ -123,7 +100,7 @@ func main() {
 				}
 			}
 		}
-		
+
 		cmdName, ok := commands.CommandAliases[cmd]
 		if !ok {
 			cmdName = cmd
@@ -137,34 +114,6 @@ func main() {
 	// Add reaction handler for pagination
 	bot.Client.AddHandler(func(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
 		commands.HandlePagination(s, r)
-	})
-
-	// Add handler for when bot is added to a guild
-	bot.Client.AddHandler(func(s *discordgo.Session, g *discordgo.GuildCreate) {
-		// When the bot is added to a guild, ensure the owner is marked as owner in the database
-		_, err := bot.Db.Exec(`
-			INSERT INTO users (guild_id, user_id, is_owner) 
-			VALUES ($1, $2, TRUE) 
-			ON CONFLICT (guild_id, user_id) 
-			DO UPDATE SET is_owner = TRUE`,
-			g.ID, g.OwnerID)
-		if err != nil {
-			log.Printf("Error setting owner status for user %s in guild %s: %v", g.OwnerID, g.ID, err)
-		}
-	})
-
-	// Add handler for when guild information is updated
-	bot.Client.AddHandler(func(s *discordgo.Session, g *discordgo.GuildUpdate) {
-		// If the guild owner changes, update the owner in the database
-		_, err := bot.Db.Exec(`
-			INSERT INTO users (guild_id, user_id, is_owner) 
-			VALUES ($1, $2, TRUE) 
-			ON CONFLICT (guild_id, user_id) 
-			DO UPDATE SET is_owner = TRUE`,
-			g.ID, g.OwnerID)
-		if err != nil {
-			log.Printf("Error setting owner status for user %s in guild %s: %v", g.OwnerID, g.ID, err)
-		}
 	})
 
 	bot.Client.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {

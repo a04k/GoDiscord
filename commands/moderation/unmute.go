@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
-	"DiscordBot/utils"
 	"DiscordBot/commands"
+	"DiscordBot/utils"
+	"github.com/bwmarrin/discordgo"
 )
 
 func init() {
@@ -16,21 +16,13 @@ func init() {
 
 func Unmute(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	// Check if the user is an admin or moderator
-	isMod, err := utils.IsModerator(b.Db, m.Author.ID)
+	isMod, err := b.IsMod(m.GuildID, m.Author.ID)
 	if err != nil {
 		log.Printf("Error checking mod status: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
 		return
 	}
-
-	isOwner, err := utils.IsAdmin(b.Db, m.GuildID, m.Author.ID)
-	if err != nil {
-		log.Printf("Error checking admin status: %v", err)
-		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-		return
-	}
-
-	if !isMod && !isOwner {
+	if !isMod {
 		s.ChannelMessageSend(m.ChannelID, "You do not have permission to use this command.")
 		return
 	}

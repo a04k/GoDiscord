@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"database/sql"
 	"fmt"
 	"strconv"
 	"strings"
@@ -35,43 +34,6 @@ func ExtractUserID(mention string) (string, error) {
 	}
 
 	return userID, nil
-}
-
-func IsAdmin(db *sql.DB, guildID, userID string) (bool, error) {
-	var isAdmin bool
-	var isOwner bool
-	err := db.QueryRow("SELECT is_admin, is_owner FROM users WHERE guild_id = $1 AND user_id = $2", guildID, userID).Scan(&isAdmin, &isOwner)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return false, nil // user not found, cant be admin
-		}
-		return false, err // db err
-	}
-	return isAdmin || isOwner, nil
-}
-
-func IsOwner(db *sql.DB, guildID, userID string) (bool, error) {
-	var isOwner bool
-	err := db.QueryRow("SELECT is_owner FROM users WHERE guild_id = $1 AND user_id = $2", guildID, userID).Scan(&isOwner)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return false, nil // user not found, cant be owner
-		}
-		return false, err // db err
-	}
-	return isOwner, nil
-}
-
-func IsModerator(db *sql.DB, userID string) (bool, error) {
-	var isMod bool
-	err := db.QueryRow("SELECT is_mod FROM users WHERE user_id = $1", userID).Scan(&isMod)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return false, nil // user not found, cant be mod
-		}
-		return false, err // db err
-	}
-	return isMod, nil
 }
 
 // permission parsing function

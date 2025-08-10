@@ -5,10 +5,9 @@ import (
 	"log"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
 	"DiscordBot/commands"
-	"DiscordBot/utils"
+	"github.com/bwmarrin/discordgo"
 )
 
 func init() {
@@ -21,7 +20,7 @@ func SetMod(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args [
 		return
 	}
 
-	isAdmin, err := utils.IsAdmin(b.Db, m.GuildID, m.Author.ID)
+	isAdmin, err := b.IsAdmin(m.GuildID, m.Author.ID)
 	if err != nil {
 		log.Printf("Error checking admin status: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
@@ -35,7 +34,7 @@ func SetMod(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args [
 	recipient := strings.TrimPrefix(strings.TrimSuffix(args[1], ">"), "<@")
 
 	// Promote the user to mod
-	_, err = b.Db.Exec("INSERT INTO users (guild_id, user_id, is_mod) VALUES ($1, $2, TRUE) ON CONFLICT (guild_id, user_id) DO UPDATE SET is_mod = TRUE", m.GuildID, recipient)
+	_, err = b.Db.Exec("INSERT INTO permissions (guild_id, user_id, role) VALUES ($1, $2, 'moderator') ON CONFLICT (guild_id, user_id) DO UPDATE SET role = 'moderator'", m.GuildID, recipient)
 	if err != nil {
 		log.Printf("Error promoting user: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")

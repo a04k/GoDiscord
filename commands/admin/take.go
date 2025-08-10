@@ -1,14 +1,13 @@
 package admin
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
-	"DiscordBot/utils"
 	"DiscordBot/commands"
+	"DiscordBot/utils"
+	"github.com/bwmarrin/discordgo"
 )
 
 func init() {
@@ -22,7 +21,7 @@ func Take(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 	}
 
 	// Check if the user is an admin
-	isAdmin, err := utils.IsAdmin(b.Db, m.GuildID, m.Author.ID)
+	isAdmin, err := b.IsAdmin(m.GuildID, m.Author.ID)
 	if err != nil {
 		log.Printf("Error checking admin status: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
@@ -43,17 +42,11 @@ func Take(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 
 	// Get the recipient's balance
 	var recipientBalance int
-	err = b.Db.QueryRow("SELECT balance FROM users WHERE user_id = $1", recipientID).Scan(&recipientBalance)
+	err = b.Db.QueryRow("SELECT balance FROM users WHERE guild_id = $1 AND user_id = $2", m.GuildID, recipientID).Scan(&recipientBalance)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			// Recipient doesn't exist
-			s.ChannelMessageSend(m.ChannelID, "User not found in the database.")
-			return
-		} else {
-			log.Printf("Error querying recipient balance: %v", err)
-			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-			return
-		}
+		log.Printf("Error querying recipient balance: %v", err)
+		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+		return
 	}
 
 	// Handle "all" case by setting amount to the recipient's total balance
@@ -76,7 +69,7 @@ func Take(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 	}
 
 	// Remove coins from the recipient
-	_, err = b.Db.Exec("UPDATE users SET balance = balance - $1 WHERE user_id = $2", amount, recipientID)
+	_, err = b.Db.Exec("UPDATE users SET balance = balance - $1 WHERE guild_id = $2 AND user_id = $3", amount, m.GuildID, recipientID)
 	if err != nil {
 		log.Printf("Error removing coins from user: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")

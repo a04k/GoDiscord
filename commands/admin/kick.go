@@ -5,10 +5,10 @@ import (
 	"log"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
-	"DiscordBot/utils"
 	"DiscordBot/commands"
+	"DiscordBot/utils"
+	"github.com/bwmarrin/discordgo"
 )
 
 func init() {
@@ -17,8 +17,8 @@ func init() {
 
 func Kick(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	// Check if the user is an admin
-	isOwner, err := utils.IsAdmin(b.Db, m.GuildID, m.Author.ID)
-	if err != nil || !isOwner {
+	isAdmin, err := b.IsAdmin(m.GuildID, m.Author.ID)
+	if err != nil || !isAdmin {
 		s.ChannelMessageSend(m.ChannelID, "You do not have permission to use this command.")
 		return
 	}

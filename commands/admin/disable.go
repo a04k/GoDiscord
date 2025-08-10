@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"strings"
@@ -17,17 +16,11 @@ func init() {
 
 // DisableCommand allows server admins to disable specific commands or categories in their server
 func DisableCommand(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	// Check if the user is an admin (database flag only)
-	var isAdmin bool
-	err := b.Db.QueryRow("SELECT is_admin FROM users WHERE guild_id = $1 AND user_id = $2", m.GuildID, m.Author.ID).Scan(&isAdmin)
+	isAdmin, err := b.IsAdmin(m.GuildID, m.Author.ID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			isAdmin = false
-		} else {
-			log.Printf("Error checking admin status for user %s: %v", m.Author.ID, err)
-			s.ChannelMessageSend(m.ChannelID, "Error checking admin status.")
-			return
-		}
+		log.Printf("Error checking admin status for user %s: %v", m.Author.ID, err)
+		s.ChannelMessageSend(m.ChannelID, "Error checking admin status.")
+		return
 	}
 
 	if !isAdmin {

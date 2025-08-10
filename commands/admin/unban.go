@@ -5,7 +5,12 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
+	"DiscordBot/commands"
 )
+
+func init() {
+	commands.RegisterCommand("unban", Unban)
+}
 
 func Unban(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	if len(args) >= 2 {

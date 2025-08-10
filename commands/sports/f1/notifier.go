@@ -1,4 +1,4 @@
-package f1notifier
+package f1
 
 import (
 	"database/sql"
@@ -20,19 +20,7 @@ const (
 )
 
 // Event represents a single F1 event (Grand Prix) from our schedule.
-type Event struct {
-	Name     string    `json:"name"`
-	Location string    `json:"location"`
-	Circuit  string    `json:"circuit"`
-	Sessions []Session `json:"sessions"`
-}
-
-// Session represents a single session within an F1 event.
-type Session struct {
-	Type string `json:"type"`
-	Name string `json:"name"`
-	Date string `json:"date"`
-}
+// This struct is defined in notifier.go and used by other f1 commands.
 
 // F1Notifier holds the Discord session, database connection, and notification state.
 type F1Notifier struct {
@@ -76,7 +64,7 @@ func (fn *F1Notifier) checkAndNotify() {
 
 	now := time.Now().UTC()
 
-	// Notify for upcoming events (race weekends)
+	// Notify for upcoming events (race weekends) with full schedule
 	for _, event := range events {
 		if len(event.Sessions) == 0 {
 			continue
@@ -94,21 +82,34 @@ func (fn *F1Notifier) checkAndNotify() {
 		if eventStartTime.After(now) && eventStartTime.Before(now.Add(24*time.Hour)) {
 			eventID := fmt.Sprintf("%s-%s", event.Name, firstSession.Date)
 			if _, ok := fn.lastNotifiedEvent[eventID]; !ok {
-				fn.notifySubscribers(fmt.Sprintf(`
-Upcoming F1 Event: **%s**
-Location: %s
-Circuit: %s
-Starts: <t:%d:F> (<t:%d:R>)`,
-					event.Name, event.Location, event.Circuit, eventStartTime.Unix(), eventStartTime.Unix(),
-				))
+				// Build the full weekend schedule message
+				scheduleMessage := fmt.Sprintf(`
+**ITS %s WEEKEND!** Here's the timetable (in your timezone) for each session:
+
+`, event.Name)
+				
+				for _, session := range event.Sessions {
+					sessionTime, err := time.Parse(time.RFC3339, session.Date)
+					if err != nil {
+						continue
+					}
+					scheduleMessage += fmt.Sprintf("**%s**: <t:%d:F>\n", session.Name, sessionTime.Unix())
+				}
+				
+				fn.notifySubscribers(scheduleMessage)
 				fn.lastNotifiedEvent[eventID] = now
 			}
 		}
 	}
 
-	// Notify for upcoming sessions
+	// Notify for upcoming sessions (except the first one which is already covered above)
 	for _, event := range events {
-		for _, session := range event.Sessions {
+		for i, session := range event.Sessions {
+			// Skip the first session as it's already covered in the event notification
+			if i == 0 {
+				continue
+			}
+			
 			sessionTime, err := time.Parse(time.RFC3339, session.Date)
 			if err != nil {
 				log.Printf("Error parsing session date for %s: %v", session.Name, err)

@@ -9,7 +9,12 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
 	"DiscordBot/utils"
+	"DiscordBot/commands"
 )
+
+func init() {
+	commands.RegisterCommand("createrole", CreateRole, "cr")
+}
 
 func CreateRole(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	if len(args) < 2 {

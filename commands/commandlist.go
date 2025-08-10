@@ -1,33 +1,90 @@
 package commands
 
 import (
+	"fmt"
+	"log"
+	"strings"
+
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
 )
 
-func CommandList(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	embed := &discordgo.MessageEmbed{
-		Title:       "Available Commands",
-		Description: "Here is a list of all available commands:",
-		Color:       0x0000FF, //blue left bar for commands list
+func init() {
+	RegisterCommand("commandlist", CommandList, "cl")
+}
 
-		Fields: []*discordgo.MessageEmbedField{
-			{
-				Name:   "User Commands",
-				Value:  "`bal / balance` - Check your balance.\n`work` - Earn coins (6h cooldown).\n`flip <amount / all>` - Gamble coins.\n`transfer <@user> <amount>` - Send coins to another user.\n`usd [amount]` - USD to EGP exchange rate.\n`btc` - Bitcoin price in USD.\n`f1` - View next F1 event and details.\n`nextf1session` - View next F1 session with time.\n`f1sub` - Subscribe/unsubscribe to F1 notifications (DM only).\n`/f1` - Toggle F1 notifications (slash command).\n`/setup <landline> <password>` - Save WE credentials.\n`/quota` - Check internet quota (after setup).",
-				Inline: false,
-			},
-			{
-				Name:   "Moderator Commands",
-				Value:  "`mute <@user> [reason]` - Mute a user.\n`unmute <@user>` - Unmute a user.\n`voicemute/vm <@user> [reason]` - Mute a user's voice.\n`voiceunmute/vum <@user>` - Unmute a user's voice.",
-				Inline: false,
-			},
-			{
-				Name:   "Admin Commands",
-				Value:  "`add <@user> <amount>` - add: Add coins to a user.\n`take <@user> <amount>` - take: Remove coins from a user.\n`sa <@user>` - sa/setadmin: Promote a user to admin.\n`cr/createrole <role name> [color] [permissions] [hoist]` - Create a new role.\n`sr/setrole <@user> <role name>` - Assign role to user.\n`inrole <role name or mention>` - View users in a role.\n `ri/roleinfo <role name or mention>` - View role information.\n`ban <@user> [reason(OPTIONAL)] [days(OPTIONAL)]` - Ban a user with optional reason and days of message deletion.",
-				Inline: false,
-			},
-		},
+func CommandList(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
+	rows, err := b.Db.Query("SELECT name, type FROM disabled_commands WHERE guild_id = $1", m.GuildID)
+	if err != nil {
+		log.Printf("Error getting disabled commands for guild %s: %v", m.GuildID, err)
+		s.ChannelMessageSend(m.ChannelID, "Error getting command list.")
+		return
+	}
+	defer rows.Close()
+
+	disabledCommandsMap := make(map[string]bool)
+	disabledCategoriesMap := make(map[string]bool)
+	var disabledCommandsList []string
+
+	for rows.Next() {
+		var name, dType string
+		if err := rows.Scan(&name, &dType); err != nil {
+			log.Printf("Error scanning disabled command: %v", err)
+			continue
+		}
+		if dType == "command" {
+			disabledCommandsMap[name] = true
+			disabledCommandsList = append(disabledCommandsList, ".`"+name+"`")
+		} else if dType == "category" {
+			disabledCategoriesMap[strings.ToLower(name)] = true
+		}
+	}
+
+	enabledCommandsBuilder := &strings.Builder{}
+	for category, cmds := range CommandCategories {
+		if !disabledCategoriesMap[strings.ToLower(category)] {
+			enabledInCategory := &strings.Builder{}
+			for _, cmd := range cmds {
+				if !disabledCommandsMap[cmd] {
+					fmt.Fprintf(enabledInCategory, ".%s `", cmd)
+				}
+			}
+			if enabledInCategory.Len() > 0 {
+				fmt.Fprintf(enabledCommandsBuilder, "**%s**\n%s\n\n", category, enabledInCategory.String())
+			}
+		}
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title: "Command List",
+		Color: 0x00ff00,
+	}
+
+	if enabledCommandsBuilder.Len() > 0 {
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:  "Enabled Commands",
+			Value: enabledCommandsBuilder.String(),
+			Inline: false,
+		})
+	}
+
+	if len(disabledCommandsList) > 0 {
+			disabledSection := &strings.Builder{}
+			fmt.Fprintf(disabledSection, "**Commands**\n%s\n\n", strings.Join(disabledCommandsList, "\n"))
+
+			var disabledCatList []string
+			for cat := range disabledCategoriesMap {
+				disabledCatList = append(disabledCatList, "`"+strings.Title(cat)+"`")
+			}
+			if len(disabledCatList) > 0 {
+				fmt.Fprintf(disabledSection, "**Categories**\n%s\n", strings.Join(disabledCatList, "\n"))
+			}
+
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:  "Disabled",
+			Value: disabledSection.String(),
+			Inline: false,
+		})
 	}
 
 	s.ChannelMessageSendEmbed(m.ChannelID, embed)

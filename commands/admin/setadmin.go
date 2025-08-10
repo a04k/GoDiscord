@@ -8,7 +8,12 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
 	"DiscordBot/utils"
+	"DiscordBot/commands"
 )
+
+func init() {
+	commands.RegisterCommand("setadmin", SetAdmin, "sa")
+}
 
 func SetAdmin(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	if len(args) < 2 {

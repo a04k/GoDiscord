@@ -8,7 +8,12 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
 	"DiscordBot/utils"
+	"DiscordBot/commands"
 )
+
+func init() {
+	commands.RegisterCommand("kick", Kick)
+}
 
 func Kick(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	// Check if the user is an admin

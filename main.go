@@ -1,18 +1,19 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"os"
 	"strings"
 
 	"DiscordBot/bot"
 	"DiscordBot/commands"
-	"DiscordBot/commands/admin"
-	"DiscordBot/commands/economy"
-	"DiscordBot/commands/moderation"
-	"DiscordBot/commands/roles"
 	"DiscordBot/commands/slash"
-	"DiscordBot/f1notifier"
+	"DiscordBot/commands/sports/f1"
+	_ "DiscordBot/commands/admin"
+	_ "DiscordBot/commands/economy"
+	_ "DiscordBot/commands/moderation"
+	_ "DiscordBot/commands/roles"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
@@ -38,57 +39,42 @@ func main() {
 		args := strings.Fields(m.Content)
 		cmd := strings.ToLower(args[0][1:])
 
-		switch cmd {
-		case "help", "h":
-			commands.Help(bot, s, m, args)
-		case "commandlist", "cl":
-			commands.CommandList(bot, s, m, args)
-		case "usd":
-			commands.USD(bot, s, m, args)
-		case "btc":
-			commands.BTC(bot, s, m, args)
-		case "bal", "balance":
-			economy.Balance(bot, s, m, args)
-		case "work":
-			economy.Work(bot, s, m, args)
-		case "transfer":
-			economy.Transfer(bot, s, m, args)
-		case "flip":
-			economy.Flip(bot, s, m, args)
-		case "f1":
-			commands.F1(bot, s, m, args)
-		case "nextf1session":
-			commands.NextF1Session(bot, s, m, args)
-		case "f1sub":
-			commands.F1Subscribe(bot, s, m, args)
-		case "kick":
-			admin.Kick(bot, s, m, args)
-		case "mute", "m":
-			moderation.Mute(bot, s, m, args)
-		case "unmute", "um":
-			moderation.Unmute(bot, s, m, args)
-		case "voicemute", "vm":
-			moderation.VoiceMute(bot, s, m, args)
-		case "vunmute", "vum":
-			moderation.VoiceUnmute(bot, s, m, args)
-		case "ban":
-			admin.Ban(bot, s, m, args)
-		case "unban":
-			admin.Unban(bot, s, m, args)
-		case "setadmin", "sa":
-			admin.SetAdmin(bot, s, m, args)
-		case "add":
-			admin.Add(bot, s, m, args)
-		case "take":
-			admin.Take(bot, s, m, args)
-		case "createrole", "cr":
-			roles.CreateRole(bot, s, m, args)
-		case "setrole", "sr":
-			roles.SetRole(bot, s, m, args)
-		case "inrole":
-			roles.InRole(bot, s, m, args)
-		case "roleinfo", "ri":
-			roles.RoleInfo(bot, s, m, args)
+		// Check if the command is disabled in this guild
+		if m.GuildID != "" {
+			var count int
+			// Check for disabled command
+			err := bot.Db.QueryRow("SELECT COUNT(*) FROM disabled_commands WHERE guild_id = $1 AND name = $2 AND type = 'command'",
+				m.GuildID, cmd).Scan(&count)
+			if err != nil && err != sql.ErrNoRows {
+				log.Printf("Error checking if command %s is disabled in guild %s: %v", cmd, m.GuildID, err)
+			} else if count > 0 {
+				return // Command is disabled
+			}
+
+			// Check if the command's category is disabled
+			for category, cmds := range commands.CommandCategories {
+				for _, c := range cmds {
+					if c == cmd {
+						err := bot.Db.QueryRow("SELECT COUNT(*) FROM disabled_commands WHERE guild_id = $1 AND name = $2 AND type = 'category'",
+							m.GuildID, strings.ToLower(category)).Scan(&count)
+						if err != nil && err != sql.ErrNoRows {
+							log.Printf("Error checking if category %s is disabled in guild %s: %v", category, m.GuildID, err)
+						} else if count > 0 {
+							return // Category is disabled
+						}
+						break
+					}
+				}
+			}
+		}
+		
+		cmdName, ok := commands.CommandAliases[cmd]
+		if !ok {
+			cmdName = cmd
+		}
+
+		if handler, ok := commands.CommandMap[cmdName]; ok {
+			handler(bot, s, m, args)
 		}
 	})
 
@@ -116,7 +102,7 @@ func main() {
 	slash.RegisterCommands(bot.Client, "")
 
 	// Start F1 Notifier
-	f1Notifier := f1notifier.NewF1Notifier(bot.Client, bot.Db)
+	f1Notifier := f1.NewF1Notifier(bot.Client, bot.Db)
 	go f1Notifier.Start()
 
 	defer bot.Client.Close()

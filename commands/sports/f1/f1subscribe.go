@@ -1,29 +1,22 @@
-package commands
+package f1
 
 import (
 	"log"
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
+	"DiscordBot/commands"
 )
 
+func init() {
+	commands.RegisterCommand("f1sub", F1Subscribe)
+}
+
 func F1Subscribe(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	// Check if this is a DM
-	channel, err := s.Channel(m.ChannelID)
-	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, "Error checking channel type.")
-		return
-	}
-
-	if channel.Type != discordgo.ChannelTypeDM {
-		s.ChannelMessageSend(m.ChannelID, "This command can only be used in DMs. Please DM the bot to subscribe to F1 notifications.")
-		return
-	}
-
 	userID := m.Author.ID
 
 	var exists bool
-	err = b.Db.QueryRow("SELECT EXISTS(SELECT 1 FROM f1_subscriptions WHERE user_id = $1)", userID).Scan(&exists)
+	err := b.Db.QueryRow("SELECT EXISTS(SELECT 1 FROM f1_subscriptions WHERE user_id = $1)", userID).Scan(&exists)
 	if err != nil {
 		log.Printf("Error checking F1 subscription status for user %s: %v", userID, err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred while checking your subscription status.")

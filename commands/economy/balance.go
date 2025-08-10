@@ -7,7 +7,12 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
 	"DiscordBot/utils"
+	"DiscordBot/commands"
 )
+
+func init() {
+	commands.RegisterCommand("balance", Balance, "bal")
+}
 
 func Balance(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	var targetUserID string

@@ -1,0 +1,746 @@
+[
+  {
+    "name": "Australian Grand Prix",
+    "location": "Melbourne, Australia",
+    "circuit": "Albert Park Circuit",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-03-14T01:30:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 2",
+        "date": "2025-03-14T05:00:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 3",
+        "date": "2025-03-15T01:30:00Z"
+      },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-03-15T05:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Australian Grand Prix",
+        "date": "2025-03-16T04:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Chinese Grand Prix",
+    "location": "Shanghai, China",
+    "circuit": "Shanghai International Circuit",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-03-21T03:30:00Z"
+      },
+      {
+        "type": "Sprint Qualifying",
+        "name": "Sprint Qualifying",
+        "date": "2025-03-21T07:30:00Z"
+      },
+      { "type": "Sprint", "name": "Sprint", "date": "2025-03-22T03:00:00Z" },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-03-22T07:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Chinese Grand Prix",
+        "date": "2025-03-23T07:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Japanese Grand Prix",
+    "location": "Suzuka, Japan",
+    "circuit": "Suzuka Circuit",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-04-04T03:30:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 2",
+        "date": "2025-04-04T07:00:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 3",
+        "date": "2025-04-05T03:30:00Z"
+      },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-04-05T07:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Japanese Grand Prix",
+        "date": "2025-04-06T06:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Bahrain Grand Prix",
+    "location": "Sakhir, Bahrain",
+    "circuit": "Bahrain International Circuit",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-04-11T12:30:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 2",
+        "date": "2025-04-11T16:00:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 3",
+        "date": "2025-04-12T13:30:00Z"
+      },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-04-12T17:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Bahrain Grand Prix",
+        "date": "2025-04-13T16:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Saudi Arabian Grand Prix",
+    "location": "Jeddah, Saudi Arabia",
+    "circuit": "Jeddah Corniche Circuit",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-04-18T14:30:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 2",
+        "date": "2025-04-18T18:00:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 3",
+        "date": "2025-04-19T14:30:00Z"
+      },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-04-19T18:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Saudi Arabian Grand Prix",
+        "date": "2025-04-20T18:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Miami Grand Prix",
+    "location": "Miami, USA",
+    "circuit": "Miami International Autodrome",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-05-02T17:30:00Z"
+      },
+      {
+        "type": "Sprint Qualifying",
+        "name": "Sprint Qualifying",
+        "date": "2025-05-02T21:30:00Z"
+      },
+      { "type": "Sprint", "name": "Sprint", "date": "2025-05-03T17:00:00Z" },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-05-03T21:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Miami Grand Prix",
+        "date": "2025-05-04T21:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Emilia-Romagna Grand Prix",
+    "location": "Imola, Italy",
+    "circuit": "Imola Circuit",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-05-16T12:30:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 2",
+        "date": "2025-05-16T16:00:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 3",
+        "date": "2025-05-17T11:30:00Z"
+      },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-05-17T15:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Emilia-Romagna Grand Prix",
+        "date": "2025-05-18T14:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Monaco Grand Prix",
+    "location": "Monte Carlo, Monaco",
+    "circuit": "Circuit de Monaco",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-05-23T12:30:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 2",
+        "date": "2025-05-23T16:00:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 3",
+        "date": "2025-05-24T11:30:00Z"
+      },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-05-24T15:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Monaco Grand Prix",
+        "date": "2025-05-25T14:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Spanish Grand Prix",
+    "location": "Montmeló, Spain",
+    "circuit": "Circuit de Barcelona-Catalunya",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-05-30T12:30:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 2",
+        "date": "2025-05-30T16:00:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 3",
+        "date": "2025-05-31T11:30:00Z"
+      },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-05-31T15:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Spanish Grand Prix",
+        "date": "2025-06-01T14:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Canadian Grand Prix",
+    "location": "Montreal, Canada",
+    "circuit": "Circuit Gilles Villeneuve",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-06-13T18:30:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 2",
+        "date": "2025-06-13T22:00:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 3",
+        "date": "2025-06-14T17:30:00Z"
+      },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-06-14T21:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Canadian Grand Prix",
+        "date": "2025-06-15T19:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Austrian Grand Prix",
+    "location": "Spielberg, Austria",
+    "circuit": "Red Bull Ring",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-06-27T12:30:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 2",
+        "date": "2025-06-27T16:00:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 3",
+        "date": "2025-06-28T11:30:00Z"
+      },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-06-28T15:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Austrian Grand Prix",
+        "date": "2025-06-29T14:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "British Grand Prix",
+    "location": "Silverstone, UK",
+    "circuit": "Silverstone Circuit",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-07-04T12:30:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 2",
+        "date": "2025-07-04T16:00:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 3",
+        "date": "2025-07-05T11:30:00Z"
+      },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-07-05T15:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "British Grand Prix",
+        "date": "2025-07-06T15:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Belgian Grand Prix",
+    "location": "Stavelot, Belgium",
+    "circuit": "Circuit de Spa-Francorchamps",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-07-25T11:30:00Z"
+      },
+      {
+        "type": "Sprint Qualifying",
+        "name": "Sprint Qualifying",
+        "date": "2025-07-25T15:30:00Z"
+      },
+      { "type": "Sprint", "name": "Sprint", "date": "2025-07-26T11:00:00Z" },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-07-26T15:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Belgian Grand Prix",
+        "date": "2025-07-27T14:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Hungarian Grand Prix",
+    "location": "Mogyoród, Hungary",
+    "circuit": "Hungaroring",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-08-01T12:30:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 2",
+        "date": "2025-08-01T16:00:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 3",
+        "date": "2025-08-02T11:30:00Z"
+      },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-08-02T15:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Hungarian Grand Prix",
+        "date": "2025-08-03T14:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Dutch Grand Prix",
+    "location": "Zandvoort, Netherlands",
+    "circuit": "Circuit Zandvoort",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-08-29T11:30:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 2",
+        "date": "2025-08-29T15:00:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 3",
+        "date": "2025-08-30T10:30:00Z"
+      },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-08-30T14:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Dutch Grand Prix",
+        "date": "2025-08-31T14:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Italian Grand Prix",
+    "location": "Monza, Italy",
+    "circuit": "Monza Circuit",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-09-05T12:30:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 2",
+        "date": "2025-09-05T16:00:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 3",
+        "date": "2025-09-06T11:30:00Z"
+      },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-09-06T15:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Italian Grand Prix",
+        "date": "2025-09-07T14:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Azerbaijan Grand Prix",
+    "location": "Baku, Azerbaijan",
+    "circuit": "Baku City Circuit",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-09-19T09:30:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 2",
+        "date": "2025-09-19T13:00:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 3",
+        "date": "2025-09-20T09:30:00Z"
+      },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-09-20T13:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Azerbaijan Grand Prix",
+        "date": "2025-09-21T12:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Singapore Grand Prix",
+    "location": "Singapore, Singapore",
+    "circuit": "Marina Bay Street Circuit",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-10-03T10:30:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 2",
+        "date": "2025-10-03T14:00:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 3",
+        "date": "2025-10-04T10:30:00Z"
+      },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-10-04T14:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Singapore Grand Prix",
+        "date": "2025-10-05T13:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "United States Grand Prix",
+    "location": "Austin, Texas, USA",
+    "circuit": "Circuit of the Americas",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-10-17T18:30:00Z"
+      },
+      {
+        "type": "Sprint Qualifying",
+        "name": "Sprint Qualifying",
+        "date": "2025-10-17T22:30:00Z"
+      },
+      { "type": "Sprint", "name": "Sprint", "date": "2025-10-18T18:00:00Z" },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-10-18T22:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "United States Grand Prix",
+        "date": "2025-10-19T20:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Mexico City Grand Prix",
+    "location": "Mexico City, Mexico",
+    "circuit": "Autódromo Hermanos Rodríguez",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-10-24T19:30:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 2",
+        "date": "2025-10-24T23:00:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 3",
+        "date": "2025-10-25T18:30:00Z"
+      },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-10-25T22:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Mexico City Grand Prix",
+        "date": "2025-10-26T20:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "São Paulo Grand Prix",
+    "location": "São Paulo, Brazil",
+    "circuit": "Interlagos Circuit",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-11-07T14:30:00Z"
+      },
+      {
+        "type": "Sprint Qualifying",
+        "name": "Sprint Qualifying",
+        "date": "2025-11-07T18:30:00Z"
+      },
+      { "type": "Sprint", "name": "Sprint", "date": "2025-11-08T14:00:00Z" },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-11-08T18:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "São Paulo Grand Prix",
+        "date": "2025-11-09T17:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Las Vegas Grand Prix",
+    "location": "Las Vegas, USA",
+    "circuit": "Las Vegas Strip Circuit",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-11-21T00:30:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 2",
+        "date": "2025-11-21T04:00:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 3",
+        "date": "2025-11-22T00:30:00Z"
+      },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-11-22T04:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Las Vegas Grand Prix",
+        "date": "2025-11-23T04:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Qatar Grand Prix",
+    "location": "Lusail, Qatar",
+    "circuit": "Lusail International Circuit",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-11-28T13:30:00Z"
+      },
+      {
+        "type": "Sprint Qualifying",
+        "name": "Sprint Qualifying",
+        "date": "2025-11-28T17:30:00Z"
+      },
+      { "type": "Sprint", "name": "Sprint", "date": "2025-11-29T14:00:00Z" },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-11-29T18:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Qatar Grand Prix",
+        "date": "2025-11-30T16:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Abu Dhabi Grand Prix",
+    "location": "Abu Dhabi, UAE",
+    "circuit": "Yas Marina Circuit",
+    "sessions": [
+      {
+        "type": "Practice",
+        "name": "Free Practice 1",
+        "date": "2025-12-05T09:30:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 2",
+        "date": "2025-12-05T13:00:00Z"
+      },
+      {
+        "type": "Practice",
+        "name": "Free Practice 3",
+        "date": "2025-12-06T10:30:00Z"
+      },
+      {
+        "type": "Qualifying",
+        "name": "Qualifying",
+        "date": "2025-12-06T14:00:00Z"
+      },
+      {
+        "type": "Race",
+        "name": "Abu Dhabi Grand Prix",
+        "date": "2025-12-07T13:00:00Z"
+      }
+    ]
+  }
+]

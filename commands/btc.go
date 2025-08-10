@@ -9,6 +9,10 @@ import (
 	"DiscordBot/bot"
 )
 
+func init() {
+	RegisterCommand("btc", BTC)
+}
+
 func BTC(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	resp, err := http.Get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd")
 	if err != nil {

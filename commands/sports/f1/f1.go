@@ -1,4 +1,4 @@
-package commands
+package f1
 
 import (
 	"fmt"
@@ -7,11 +7,15 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
-	"DiscordBot/f1notifier"
+	"DiscordBot/commands"
 )
 
+func init() {
+	commands.RegisterCommand("f1", F1)
+}
+
 func F1(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	events, err := f1notifier.FetchF1Events()
+	events, err := FetchF1Events()
 	if err != nil {
 		log.Printf("Error fetching F1 events: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "Error fetching F1 schedule")
@@ -19,7 +23,7 @@ func F1(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []str
 	}
 
 	now := time.Now().UTC()
-	var nextEvent *f1notifier.Event
+	var nextEvent *Event
 
 	// Find the next upcoming event
 	for _, event := range events {
@@ -31,8 +35,7 @@ func F1(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []str
 		firstSession := event.Sessions[0]
 		eventStartTime, err := time.Parse(time.RFC3339, firstSession.Date)
 		if err != nil {
-			continue
-		}
+			continue		}
 
 		// Find the first event that hasn't started yet
 		if eventStartTime.After(now) {

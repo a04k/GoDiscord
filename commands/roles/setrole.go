@@ -7,7 +7,12 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
+	"DiscordBot/commands"
 )
+
+func init() {
+	commands.RegisterCommand("setrole", SetRole, "sr")
+}
 
 func SetRole(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	if len(args) < 3 {

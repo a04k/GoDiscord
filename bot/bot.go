@@ -39,6 +39,12 @@ CREATE TABLE IF NOT EXISTS credentials (
 
 CREATE TABLE IF NOT EXISTS f1_subscriptions (
     user_id TEXT PRIMARY KEY
+);
+
+CREATE TABLE IF NOT EXISTS disabled_commands (
+    guild_id TEXT NOT NULL,
+    command_name TEXT NOT NULL,
+    PRIMARY KEY (guild_id, command_name)
 );`
 
 func NewBot(token string, dbURL string) (*Bot, error) {

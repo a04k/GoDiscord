@@ -9,7 +9,12 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
+	"DiscordBot/commands"
 )
+
+func init() {
+	commands.RegisterCommand("work", Work)
+}
 
 func Work(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	reward := rand.Intn(650-65) + 65

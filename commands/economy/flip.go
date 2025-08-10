@@ -8,7 +8,12 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
+	"DiscordBot/commands"
 )
+
+func init() {
+	commands.RegisterCommand("flip", Flip)
+}
 
 func Flip(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	if len(args) < 2 {

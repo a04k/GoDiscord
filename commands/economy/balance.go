@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
-	"DiscordBot/utils"
 	"DiscordBot/commands"
+	"DiscordBot/utils"
+	"github.com/bwmarrin/discordgo"
 )
 
 func init() {
-	commands.RegisterCommand("balance", Balance, "bal")
+	commands.RegisterCommand("balance", Balance, "bal", "$")
 }
 
 func Balance(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {

@@ -72,14 +72,20 @@ func main() {
 		args := strings.Fields(m.Content)
 		cmd := strings.ToLower(args[0][1:])
 
+		// Resolve alias first
+		cmdName, ok := commands.CommandAliases[cmd]
+		if !ok {
+			cmdName = cmd
+		}
+
 		// Check if the command is disabled in this guild
 		if m.GuildID != "" {
 			var count int
 			// Check for disabled command
 			err := bot.Db.QueryRow("SELECT COUNT(*) FROM disabled_commands WHERE guild_id = $1 AND name = $2 AND type = 'command'",
-				m.GuildID, cmd).Scan(&count)
+				m.GuildID, cmdName).Scan(&count)
 			if err != nil && err != sql.ErrNoRows {
-				log.Printf("Error checking if command %s is disabled in guild %s: %v", cmd, m.GuildID, err)
+				log.Printf("Error checking if command %s is disabled in guild %s: %v", cmdName, m.GuildID, err)
 			} else if count > 0 {
 				return // Command is disabled
 			}
@@ -87,7 +93,7 @@ func main() {
 			// Check if the command's category is disabled
 			for category, cmds := range commands.CommandCategories {
 				for _, c := range cmds {
-					if c == cmd {
+					if c == cmdName {
 						err := bot.Db.QueryRow("SELECT COUNT(*) FROM disabled_commands WHERE guild_id = $1 AND name = $2 AND type = 'category'",
 							m.GuildID, strings.ToLower(category)).Scan(&count)
 						if err != nil && err != sql.ErrNoRows {
@@ -99,11 +105,6 @@ func main() {
 					}
 				}
 			}
-		}
-
-		cmdName, ok := commands.CommandAliases[cmd]
-		if !ok {
-			cmdName = cmd
 		}
 
 		if handler, ok := commands.CommandMap[cmdName]; ok {

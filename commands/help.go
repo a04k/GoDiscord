@@ -2,6 +2,7 @@ package commands
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"strings"
 
@@ -14,8 +15,26 @@ func init() {
 }
 
 func Help(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
+	// Ensure command is used in a guild
+	if m.GuildID == "" {
+		return // Don't respond to DMs
+	}
+
 	if len(args) > 1 {
 		commandName := strings.ToLower(args[1])
+		
+		// Resolve alias to actual command name
+		if actualName, isAlias := CommandAliases[commandName]; isAlias {
+			commandName = actualName
+		}
+		
+		// Check if the command exists
+		commandInfo, exists := CommandDetails[commandName]
+		if !exists {
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Command `%s` not found.", commandName))
+			return
+		}
+		
 		// Check if the command is disabled
 		var count int
 		err := b.Db.QueryRow("SELECT COUNT(*) FROM disabled_commands WHERE guild_id = $1 AND name = $2 AND type = 'command'",
@@ -23,64 +42,67 @@ func Help(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 		if err != nil && err != sql.ErrNoRows {
 			log.Printf("Error checking if command %s is disabled in guild %s: %v", commandName, m.GuildID, err)
 		} else if count > 0 {
-			s.ChannelMessageSend(m.ChannelID, "This command is disabled.")
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Command `%s` is disabled.", commandName))
 			return
 		}
 
 		// Check if the command's category is disabled
-		for category, cmds := range CommandCategories {
-			for _, cmd := range cmds {
-				if cmd == commandName {
-					err := b.Db.QueryRow("SELECT COUNT(*) FROM disabled_commands WHERE guild_id = $1 AND name = $2 AND type = 'category'",
-						m.GuildID, strings.ToLower(category)).Scan(&count)
-					if err != nil && err != sql.ErrNoRows {
-						log.Printf("Error checking if category %s is disabled in guild %s: %v", category, m.GuildID, err)
-					} else if count > 0 {
-						s.ChannelMessageSend(m.ChannelID, "This command's category is disabled.")
-						return
-					}
-					break
-				}
-			}
+		category := commandInfo.Category
+		err = b.Db.QueryRow("SELECT COUNT(*) FROM disabled_commands WHERE guild_id = $1 AND name = $2 AND type = 'category'",
+			m.GuildID, strings.ToLower(category)).Scan(&count)
+		if err != nil && err != sql.ErrNoRows {
+			log.Printf("Error checking if category %s is disabled in guild %s: %v", category, m.GuildID, err)
+		} else if count > 0 {
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Command `%s` is in category `%s` which is disabled.", commandName, category))
+			return
 		}
+		
+		// Build help embed for the specific command
+		embed := &discordgo.MessageEmbed{
+			Title:       fmt.Sprintf("Help: %s", commandInfo.Name),
+			Description: commandInfo.Description,
+			Color:       0x00ff00,
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name:  "Usage",
+					Value: fmt.Sprintf("`%s`", commandInfo.Usage),
+				},
+			},
+		}
+		
+		// Add aliases if they exist
+		if len(commandInfo.Aliases) > 0 {
+			aliases := strings.Join(commandInfo.Aliases, ", ")
+			embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+				Name:  "Aliases",
+				Value: aliases,
+			})
+		}
+		
+		// Add category
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:  "Category",
+			Value: commandInfo.Category,
+		})
+		
+		s.ChannelMessageSendEmbed(m.ChannelID, embed)
+		return
 	}
 
+	// General help - show categories
 	embed := &discordgo.MessageEmbed{
-		Title: "Help",
-		Description: "Here is a list of commands. For more information on a specific command, type `.help <command>`.",
-		Color: 0x00ff00,
-		Fields: []*discordgo.MessageEmbedField{
-			{
-				Name: "General",
-				Value: "`.help`, `.commandlist`, `.usd`, `.btc`",
-				Inline: false,
-			},
-			{
-				Name: "Economy",
-				Value: "`.balance`, `.work`, `.transfer`, `.flip`",
-				Inline: false,
-			},
-			{
-				Name: "F1",
-				Value: "`.f1`, `.f1results`, `.f1standings`, `.f1wdc`, `.f1wcc`, `.qualiresults`, `.nextf1session`, `.f1sub`",
-				Inline: false,
-			},
-			{
-				Name: "Moderation",
-				Value: "`.kick`, `.mute`, `.unmute`, `.voicemute`, `.vunmute`, `.ban`, `.unban`",
-				Inline: false,
-			},
-			{
-				Name: "Admin",
-				Value: "`.setadmin`, `.add`, `.take`, `.disable`, `.enable`",
-				Inline: false,
-			},
-			{
-				Name: "Roles",
-				Value: "`.createrole`, `.setrole`, `.inrole`, `.roleinfo`",
-				Inline: false,
-			},
-		},
+		Title:       "Help",
+		Description: "Here is a list of command categories. For more information on a specific command, type `.help <command>`.",
+		Color:       0x00ff00,
+	}
+
+	// Add a field for each category
+	for category := range CommandCategories {
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:   category,
+			Value:  fmt.Sprintf("`.help %s` for commands in this category", strings.ToLower(category)),
+			Inline: false,
+		})
 	}
 
 	s.ChannelMessageSendEmbed(m.ChannelID, embed)

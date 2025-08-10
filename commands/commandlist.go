@@ -14,78 +14,100 @@ func init() {
 }
 
 func CommandList(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	rows, err := b.Db.Query("SELECT name, type FROM disabled_commands WHERE guild_id = $1", m.GuildID)
-	if err != nil {
-		log.Printf("Error getting disabled commands for guild %s: %v", m.GuildID, err)
-		s.ChannelMessageSend(m.ChannelID, "Error getting command list.")
+	// Ensure command is used in a guild
+	if m.GuildID == "" {
+		return // Don't respond to DMs
+	}
+
+	// If a category is specified, show only commands from that category
+	if len(args) > 1 {
+		category := strings.Title(strings.ToLower(args[1]))
+		cmds, exists := CommandCategories[category]
+		if !exists {
+			s.ChannelMessageSend(m.ChannelID, "Invalid category. Use `.commandlist` to see all categories.")
+			return
+		}
+		
+		// Build embed for the specific category
+		embed := &discordgo.MessageEmbed{
+			Title: fmt.Sprintf("Commands - %s", category),
+			Color: 0x00ff00,
+		}
+		
+		// Add commands in this category
+		for _, cmdName := range cmds {
+			// Get command info
+			cmdInfo, exists := CommandDetails[cmdName]
+			if !exists {
+				continue
+			}
+			
+			description := cmdInfo.Description
+			if description == "" {
+				description = "No description available"
+			}
+			
+			// Add aliases if they exist
+			aliasText := ""
+			if len(cmdInfo.Aliases) > 0 {
+				aliasText = fmt.Sprintf(" (Aliases: %s)", strings.Join(cmdInfo.Aliases, ", "))
+			}
+			
+			embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+				Name:  fmt.Sprintf(".%s%s", cmdName, aliasText),
+				Value: description,
+			})
+		}
+		
+		s.ChannelMessageSendEmbed(m.ChannelID, embed)
 		return
 	}
-	defer rows.Close()
 
-	disabledCommandsMap := make(map[string]bool)
-	disabledCategoriesMap := make(map[string]bool)
-	var disabledCommandsList []string
-
-	for rows.Next() {
-		var name, dType string
-		if err := rows.Scan(&name, &dType); err != nil {
-			log.Printf("Error scanning disabled command: %v", err)
-			continue
-		}
-		if dType == "command" {
-			disabledCommandsMap[name] = true
-			disabledCommandsList = append(disabledCommandsList, ".`"+name+"`")
-		} else if dType == "category" {
-			disabledCategoriesMap[strings.ToLower(name)] = true
-		}
+	// Create paginated command list
+	pages, err := CreateCommandListPages(b, s, m)
+	if err != nil {
+		log.Printf("Error creating command list pages: %v", err)
+		s.ChannelMessageSend(m.ChannelID, "Error generating command list.")
+		return
 	}
-
-	enabledCommandsBuilder := &strings.Builder{}
-	for category, cmds := range CommandCategories {
-		if !disabledCategoriesMap[strings.ToLower(category)] {
-			enabledInCategory := &strings.Builder{}
-			for _, cmd := range cmds {
-				if !disabledCommandsMap[cmd] {
-					fmt.Fprintf(enabledInCategory, ".%s `", cmd)
-				}
-			}
-			if enabledInCategory.Len() > 0 {
-				fmt.Fprintf(enabledCommandsBuilder, "**%s**\n%s\n\n", category, enabledInCategory.String())
-			}
-		}
+	
+	if len(pages) == 0 {
+		s.ChannelMessageSend(m.ChannelID, "No commands available.")
+		return
 	}
-
-	embed := &discordgo.MessageEmbed{
-		Title: "Command List",
-		Color: 0x00ff00,
+	
+	// Send the first page
+	msg, err := s.ChannelMessageSendEmbed(m.ChannelID, pages[0])
+	if err != nil {
+		log.Printf("Error sending command list: %v", err)
+		return
 	}
-
-	if enabledCommandsBuilder.Len() > 0 {
-		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
-			Name:  "Enabled Commands",
-			Value: enabledCommandsBuilder.String(),
-			Inline: false,
-		})
+	
+	// If there's only one page, no need for pagination
+	if len(pages) <= 1 {
+		return
 	}
-
-	if len(disabledCommandsList) > 0 {
-			disabledSection := &strings.Builder{}
-			fmt.Fprintf(disabledSection, "**Commands**\n%s\n\n", strings.Join(disabledCommandsList, "\n"))
-
-			var disabledCatList []string
-			for cat := range disabledCategoriesMap {
-				disabledCatList = append(disabledCatList, "`"+strings.Title(cat)+"`")
-			}
-			if len(disabledCatList) > 0 {
-				fmt.Fprintf(disabledSection, "**Categories**\n%s\n", strings.Join(disabledCatList, "\n"))
-			}
-
-		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
-			Name:  "Disabled",
-			Value: disabledSection.String(),
-			Inline: false,
-		})
+	
+	// Add reactions for pagination
+	err = s.MessageReactionAdd(msg.ChannelID, msg.ID, "⬅️")
+	if err != nil {
+		log.Printf("Error adding left reaction: %v", err)
 	}
-
-	s.ChannelMessageSendEmbed(m.ChannelID, embed)
+	
+	err = s.MessageReactionAdd(msg.ChannelID, msg.ID, "➡️")
+	if err != nil {
+		log.Printf("Error adding right reaction: %v", err)
+	}
+	
+	// Store pagination state
+	state := &PaginationState{
+		UserID:      m.Author.ID,
+		MessageID:   msg.ID,
+		CurrentPage: 0,
+		TotalPages:  len(pages),
+		Pages:       pages,
+		GuildID:     m.GuildID,
+	}
+	
+	paginationManager.AddState(state)
 }

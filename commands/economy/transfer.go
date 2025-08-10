@@ -16,6 +16,11 @@ func init() {
 }
 
 func Transfer(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
+	// Ensure command is used in a guild
+	if m.GuildID == "" {
+		return // Don't respond to DMs
+	}
+
 	if len(args) < 3 {
 		s.ChannelMessageSend(m.ChannelID, "Usage: .transfer <recipient> <amount>")
 		return
@@ -53,7 +58,7 @@ func Transfer(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args
 
 	// Get sender's balance
 	var senderBalance int
-	err = b.Db.QueryRow("SELECT balance FROM users WHERE user_id = $1", m.Author.ID).Scan(&senderBalance)
+	err = b.Db.QueryRow("SELECT balance FROM users WHERE guild_id = $1 AND user_id = $2", m.GuildID, m.Author.ID).Scan(&senderBalance)
 	if err == sql.ErrNoRows {
 		s.ChannelMessageSend(m.ChannelID, "You have 0 coins.")
 		return
@@ -71,10 +76,10 @@ func Transfer(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args
 
 	// Get recipient's balance
 	var recipientBalance int
-	err = b.Db.QueryRow("SELECT balance FROM users WHERE user_id = $1", recipientID).Scan(&recipientBalance)
+	err = b.Db.QueryRow("SELECT balance FROM users WHERE guild_id = $1 AND user_id = $2", m.GuildID, recipientID).Scan(&recipientBalance)
 	if err == sql.ErrNoRows {
 		// Recipient doesn't exist, create a new row for them
-		_, err := b.Db.Exec("INSERT INTO users (user_id, balance) VALUES ($1, 0)", recipientID)
+		_, err := b.Db.Exec("INSERT INTO users (guild_id, user_id, balance) VALUES ($1, $2, 0)", m.GuildID, recipientID)
 		if err != nil {
 			log.Printf("Error creating recipient: %v", err)
 			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
@@ -88,7 +93,7 @@ func Transfer(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args
 	}
 
 	// Deduct from sender's balance
-	_, err = b.Db.Exec("UPDATE users SET balance = balance - $1 WHERE user_id = $2", amount, m.Author.ID)
+	_, err = b.Db.Exec("UPDATE users SET balance = balance - $1 WHERE guild_id = $2 AND user_id = $3", amount, m.GuildID, m.Author.ID)
 	if err != nil {
 		log.Printf("Error updating sender balance: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
@@ -96,7 +101,7 @@ func Transfer(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args
 	}
 
 	// Add to recipient's balance
-	_, err = b.Db.Exec("UPDATE users SET balance = balance + $1 WHERE user_id = $2", amount, recipientID)
+	_, err = b.Db.Exec("UPDATE users SET balance = balance + $1 WHERE guild_id = $2 AND user_id = $3", amount, m.GuildID, recipientID)
 	if err != nil {
 		log.Printf("Error updating recipient balance: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
@@ -105,5 +110,5 @@ func Transfer(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args
 
 	// Notify sender and recipient
 	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("You transferred %d coins to <@%s>.", amount, recipientID))
-	s.ChannelMessageSend(recipientID, fmt.Sprintf("You received %d coins from <@%s>.", amount, m.Author.ID))
+	s.ChannelMessageSend(recipientID, fmt.Sprintf("You received %d coins from <@%s> in server %s.", amount, m.Author.ID, m.GuildID))
 }

@@ -24,11 +24,13 @@ type BTCResponse struct {
 
 const schema = `
 CREATE TABLE IF NOT EXISTS users (
-    user_id TEXT PRIMARY KEY,
+    guild_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
     balance INTEGER DEFAULT 0,
     last_daily TIMESTAMP,
     is_admin BOOLEAN DEFAULT FALSE,
-    is_mod BOOLEAN DEFAULT FALSE
+    is_mod BOOLEAN DEFAULT FALSE,
+    PRIMARY KEY (guild_id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS credentials (
@@ -43,8 +45,9 @@ CREATE TABLE IF NOT EXISTS f1_subscriptions (
 
 CREATE TABLE IF NOT EXISTS disabled_commands (
     guild_id TEXT NOT NULL,
-    command_name TEXT NOT NULL,
-    PRIMARY KEY (guild_id, command_name)
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    PRIMARY KEY (guild_id, name)
 );`
 
 func NewBot(token string, dbURL string) (*Bot, error) {

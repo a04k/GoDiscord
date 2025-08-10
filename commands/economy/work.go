@@ -17,6 +17,11 @@ func init() {
 }
 
 func Work(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
+	// Ensure command is used in a guild
+	if m.GuildID == "" {
+		return // Don't respond to DMs
+	}
+
 	reward := rand.Intn(650-65) + 65
 
 	var lastDaily sql.NullTime // using nulltime to handle nulls in db
@@ -24,10 +29,10 @@ func Work(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 	var balance int
 
 	// Check if the user exists
-	err := b.Db.QueryRow("SELECT last_daily, balance FROM users WHERE user_id = $1", m.Author.ID).Scan(&lastDaily, &balance)
+	err := b.Db.QueryRow("SELECT last_daily, balance FROM users WHERE guild_id = $1 AND user_id = $2", m.GuildID, m.Author.ID).Scan(&lastDaily, &balance)
 	if err == sql.ErrNoRows {
 		// User doesn't exist, insert a new row / reg user
-		_, err = b.Db.Exec("INSERT INTO users (user_id, balance, last_daily) VALUES ($1, $2, NOW())", m.Author.ID, reward)
+		_, err = b.Db.Exec("INSERT INTO users (guild_id, user_id, balance, last_daily) VALUES ($1, $2, $3, NOW())", m.GuildID, m.Author.ID, reward)
 		if err != nil {
 			log.Printf("Error inserting new user: %v", err)
 			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
@@ -43,7 +48,7 @@ func Work(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 
 	// Check if 6 hours have passed since the last work
 	if !lastDaily.Valid || time.Since(lastDaily.Time) >= 6*time.Hour {
-		_, err := b.Db.Exec("INSERT INTO users (user_id, balance, last_daily) VALUES ($1, $2, NOW()) ON CONFLICT (user_id) DO UPDATE SET balance = users.balance + $2, last_daily = NOW()", m.Author.ID, reward)
+		_, err := b.Db.Exec("UPDATE users SET balance = users.balance + $1, last_daily = NOW() WHERE guild_id = $2 AND user_id = $3", reward, m.GuildID, m.Author.ID)
 		if err != nil {
 			log.Printf("Error updating user balance: %v", err)
 			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")

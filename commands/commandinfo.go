@@ -1,0 +1,238 @@
+package commands
+
+// CommandInfo holds detailed information about a command
+type CommandInfo struct {
+	Name        string
+	Aliases     []string
+	Description string
+	Usage       string
+	Category    string
+}
+
+// CommandDetails contains detailed information for all commands
+var CommandDetails = map[string]CommandInfo{
+	"help": {
+		Name:        "help",
+		Aliases:     []string{"h"},
+		Description: "Displays help information for commands",
+		Usage:       ".help [command]",
+		Category:    "General",
+	},
+	"commandlist": {
+		Name:        "commandlist",
+		Aliases:     []string{"cl"},
+		Description: "Lists all available commands",
+		Usage:       ".commandlist",
+		Category:    "General",
+	},
+	"usd": {
+		Name:        "usd",
+		Aliases:     []string{},
+		Description: "Converts USD to local currency",
+		Usage:       ".usd <amount>",
+		Category:    "General",
+	},
+	"btc": {
+		Name:        "btc",
+		Aliases:     []string{},
+		Description: "Shows the current Bitcoin price",
+		Usage:       ".btc",
+		Category:    "General",
+	},
+	"balance": {
+		Name:        "balance",
+		Aliases:     []string{"bal"},
+		Description: "Shows your coin balance",
+		Usage:       ".balance [user]",
+		Category:    "Economy",
+	},
+	"work": {
+		Name:        "work",
+		Aliases:     []string{},
+		Description: "Work to earn coins",
+		Usage:       ".work",
+		Category:    "Economy",
+	},
+	"transfer": {
+		Name:        "transfer",
+		Aliases:     []string{},
+		Description: "Transfer coins to another user",
+		Usage:       ".transfer <user> <amount>",
+		Category:    "Economy",
+	},
+	"flip": {
+		Name:        "flip",
+		Aliases:     []string{},
+		Description: "Flip a coin to win or lose coins",
+		Usage:       ".flip <amount|all>",
+		Category:    "Economy",
+	},
+	"f1": {
+		Name:        "f1",
+		Aliases:     []string{},
+		Description: "Shows current F1 information",
+		Usage:       ".f1",
+		Category:    "F1",
+	},
+	"f1results": {
+		Name:        "f1results",
+		Aliases:     []string{},
+		Description: "Shows the latest F1 race results",
+		Usage:       ".f1results",
+		Category:    "F1",
+	},
+	"f1standings": {
+		Name:        "f1standings",
+		Aliases:     []string{},
+		Description: "Shows the current F1 championship standings",
+		Usage:       ".f1standings",
+		Category:    "F1",
+	},
+	"f1wdc": {
+		Name:        "f1wdc",
+		Aliases:     []string{},
+		Description: "Shows the F1 Driver's Championship standings",
+		Usage:       ".f1wdc",
+		Category:    "F1",
+	},
+	"f1wcc": {
+		Name:        "f1wcc",
+		Aliases:     []string{},
+		Description: "Shows the F1 Constructor's Championship standings",
+		Usage:       ".f1wcc",
+		Category:    "F1",
+	},
+	"qualiresults": {
+		Name:        "qualiresults",
+		Aliases:     []string{},
+		Description: "Shows the latest F1 qualifying results",
+		Usage:       ".qualiresults",
+		Category:    "F1",
+	},
+	"nextf1session": {
+		Name:        "nextf1session",
+		Aliases:     []string{},
+		Description: "Shows information about the next F1 session",
+		Usage:       ".nextf1session",
+		Category:    "F1",
+	},
+	"f1sub": {
+		Name:        "f1sub",
+		Aliases:     []string{},
+		Description: "Subscribe/unsubscribe to F1 notifications",
+		Usage:       ".f1sub",
+		Category:    "F1",
+	},
+	"kick": {
+		Name:        "kick",
+		Aliases:     []string{},
+		Description: "Kicks a user from the server",
+		Usage:       ".kick <user>",
+		Category:    "Moderation",
+	},
+	"mute": {
+		Name:        "mute",
+		Aliases:     []string{},
+		Description: "Mutes a user",
+		Usage:       ".mute <user>",
+		Category:    "Moderation",
+	},
+	"unmute": {
+		Name:        "unmute",
+		Aliases:     []string{},
+		Description: "Unmutes a user",
+		Usage:       ".unmute <user>",
+		Category:    "Moderation",
+	},
+	"voicemute": {
+		Name:        "voicemute",
+		Aliases:     []string{},
+		Description: "Mutes a user in voice channels",
+		Usage:       ".voicemute <user>",
+		Category:    "Moderation",
+	},
+	"vunmute": {
+		Name:        "vunmute",
+		Aliases:     []string{},
+		Description: "Unmutes a user in voice channels",
+		Usage:       ".vunmute <user>",
+		Category:    "Moderation",
+	},
+	"ban": {
+		Name:        "ban",
+		Aliases:     []string{},
+		Description: "Bans a user from the server",
+		Usage:       ".ban <user>",
+		Category:    "Moderation",
+	},
+	"unban": {
+		Name:        "unban",
+		Aliases:     []string{},
+		Description: "Unbans a user from the server",
+		Usage:       ".unban <user>",
+		Category:    "Moderation",
+	},
+	"setadmin": {
+		Name:        "setadmin",
+		Aliases:     []string{},
+		Description: "Sets a user as bot admin",
+		Usage:       ".setadmin <user>",
+		Category:    "Admin",
+	},
+	"add": {
+		Name:        "add",
+		Aliases:     []string{},
+		Description: "Adds coins to a user's balance",
+		Usage:       ".add <user> <amount>",
+		Category:    "Admin",
+	},
+	"take": {
+		Name:        "take",
+		Aliases:     []string{},
+		Description: "Takes coins from a user's balance",
+		Usage:       ".take <user> <amount>",
+		Category:    "Admin",
+	},
+	"disable": {
+		Name:        "disable",
+		Aliases:     []string{},
+		Description: "Disables a command or category",
+		Usage:       ".disable <command|category> <name>",
+		Category:    "Admin",
+	},
+	"enable": {
+		Name:        "enable",
+		Aliases:     []string{},
+		Description: "Enables a command or category",
+		Usage:       ".enable <command|category> <name>",
+		Category:    "Admin",
+	},
+	"createrole": {
+		Name:        "createrole",
+		Aliases:     []string{},
+		Description: "Creates a new role",
+		Usage:       ".createrole <name>",
+		Category:    "Roles",
+	},
+	"setrole": {
+		Name:        "setrole",
+		Aliases:     []string{},
+		Description: "Assigns a role to a user",
+		Usage:       ".setrole <user> <role>",
+		Category:    "Roles",
+	},
+	"inrole": {
+		Name:        "inrole",
+		Aliases:     []string{},
+		Description: "Lists users in a role",
+		Usage:       ".inrole <role>",
+		Category:    "Roles",
+	},
+	"roleinfo": {
+		Name:        "roleinfo",
+		Aliases:     []string{},
+		Description: "Shows information about a role",
+		Usage:       ".roleinfo <role>",
+		Category:    "Roles",
+	},
+}

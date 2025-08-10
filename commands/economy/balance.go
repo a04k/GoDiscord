@@ -15,6 +15,11 @@ func init() {
 }
 
 func Balance(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
+	// Ensure command is used in a guild
+	if m.GuildID == "" {
+		return // Don't respond to DMs
+	}
+
 	var targetUserID string
 	// Check if a mention is provided & validate
 	if len(args) >= 2 {
@@ -40,10 +45,10 @@ func Balance(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args 
 
 	// register the user if they don't exist
 	_, err := b.Db.Exec(`
-        INSERT INTO users (user_id, balance)
-        VALUES ($1, $2)
-        ON CONFLICT (user_id) DO NOTHING`,
-		targetUserID, 0)
+        INSERT INTO users (guild_id, user_id, balance)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (guild_id, user_id) DO NOTHING`,
+		m.GuildID, targetUserID, 0)
 	if err != nil {
 		log.Printf("Error in user registration: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
@@ -52,7 +57,7 @@ func Balance(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args 
 
 	// Now query their balance (will exist due to prior insert)
 	var balance int
-	err = b.Db.QueryRow("SELECT balance FROM users WHERE user_id = $1", targetUserID).Scan(&balance)
+	err = b.Db.QueryRow("SELECT balance FROM users WHERE guild_id = $1 AND user_id = $2", m.GuildID, targetUserID).Scan(&balance)
 	if err != nil {
 		log.Printf("Error querying balance: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")

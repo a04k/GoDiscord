@@ -32,6 +32,25 @@ func main() {
 			return
 		}
 
+		// Prevent commands from being used in DMs (except for specific allowed commands)
+		if m.GuildID == "" {
+			// Allow specific commands in DMs like F1 notifications
+			args := strings.Fields(m.Content)
+			if len(args) > 0 && strings.HasPrefix(m.Content, ".") {
+				cmd := strings.ToLower(args[0][1:])
+				// Add commands that are allowed in DMs
+				allowedDMCommands := map[string]bool{
+					"f1": true, "f1results": true, "f1standings": true, "f1wdc": true, 
+					"f1wcc": true, "qualiresults": true, "nextf1session": true, "f1sub": true,
+				}
+				if !allowedDMCommands[cmd] {
+					return // Ignore commands in DMs that aren't explicitly allowed
+				}
+			} else {
+				return // No command provided or not a command
+			}
+		}
+
 		if !strings.HasPrefix(m.Content, ".") {
 			return
 		}
@@ -76,6 +95,11 @@ func main() {
 		if handler, ok := commands.CommandMap[cmdName]; ok {
 			handler(bot, s, m, args)
 		}
+	})
+
+	// Add reaction handler for pagination
+	bot.Client.AddHandler(func(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
+		commands.HandlePagination(s, r)
 	})
 
 	bot.Client.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {

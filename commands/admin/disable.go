@@ -19,7 +19,7 @@ func init() {
 func DisableCommand(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	// Check if the user is an admin (same as before)
 	var isAdmin bool
-	err := b.Db.QueryRow("SELECT is_admin FROM users WHERE user_id = $1", m.Author.ID).Scan(&isAdmin)
+	err := b.Db.QueryRow("SELECT is_admin FROM users WHERE guild_id = $1 AND user_id = $2", m.GuildID, m.Author.ID).Scan(&isAdmin)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			isAdmin = false

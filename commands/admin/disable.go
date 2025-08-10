@@ -17,7 +17,7 @@ func init() {
 
 // DisableCommand allows server admins to disable specific commands or categories in their server
 func DisableCommand(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	// Check if the user is an admin (same as before)
+	// Check if the user is an admin (database flag only)
 	var isAdmin bool
 	err := b.Db.QueryRow("SELECT is_admin FROM users WHERE guild_id = $1 AND user_id = $2", m.GuildID, m.Author.ID).Scan(&isAdmin)
 	if err != nil {
@@ -30,27 +30,8 @@ func DisableCommand(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate
 		}
 	}
 
-	member, err := s.State.Member(m.GuildID, m.Author.ID)
-	if err != nil {
-		log.Printf("Error getting member %s in guild %s: %v", m.Author.ID, m.GuildID, err)
-		s.ChannelMessageSend(m.ChannelID, "Error getting member information.")
-		return
-	}
-
-	isGuildAdmin := false
-	for _, roleID := range member.Roles {
-		role, err := s.State.Role(m.GuildID, roleID)
-		if err != nil {
-			continue
-		}
-		if role.Permissions&discordgo.PermissionAdministrator != 0 {
-			isGuildAdmin = true
-			break
-		}
-	}
-
-	if !isAdmin && !isGuildAdmin {
-		s.ChannelMessageSend(m.ChannelID, "You must be an administrator to use this command.")
+	if !isAdmin {
+		s.ChannelMessageSend(m.ChannelID, "You must be a bot administrator to use this command.")
 		return
 	}
 

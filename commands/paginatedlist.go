@@ -239,13 +239,13 @@ func HandlePagination(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
 	// Update page based on reaction
 	if r.Emoji.Name == "➡️" {
 		state.CurrentPage++
-		if state.CurrentPage >= state.TotalPages {
+		if state.CurrentPage >= len(state.Pages) {
 			state.CurrentPage = 0
 		}
 	} else if r.Emoji.Name == "⬅️" {
 		state.CurrentPage--
 		if state.CurrentPage < 0 {
-			state.CurrentPage = state.TotalPages - 1
+			state.CurrentPage = len(state.Pages) - 1
 		}
 	}
 	

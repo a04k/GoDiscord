@@ -55,8 +55,7 @@ func getQualifyingResults(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 			TruncateString(result.Driver.Code, 4),
 			TruncateString(result.Constructor.Name, 10),
 			formatTime(result.Q1),
-			formatTime(result.Q2),
-			formatTime(result.Q3))
+			formatTime(result.Q2))
 	}
 
 	// Determine the pole sitter's team color

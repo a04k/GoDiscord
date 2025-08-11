@@ -25,11 +25,8 @@ func (rs *ReminderService) Start() {
 	ticker := time.NewTicker(1 * time.Minute) // Check every minute
 	defer ticker.Stop()
 
-	for {
-		select {
-		case <-ticker.C:
-			rs.checkAndSendReminders()
-		}
+	for range ticker.C {
+		rs.checkAndSendReminders()
 	}
 }
 
@@ -67,7 +64,7 @@ func (rs *ReminderService) checkAndSendReminders() {
 
 		// Send the reminder message
 		_, err = rs.session.ChannelMessageSend(channel.ID, 
-			":bell: **Reminder** :bell:+message")
+			":bell: **Reminder** :bell:\n"+message)
 		if err != nil {
 			log.Printf("Error sending reminder to user %s: %v", userID, err)
 			// Don't mark as sent if we failed to send, so it can be retried

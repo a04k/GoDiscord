@@ -16,109 +16,99 @@ func init() {
 	RegisterCommand("remindme", RemindMe)
 }
 
-// parseDuration parses a duration string like "2h30m" into time.Duration
-func parseDuration(durationStr string) (time.Duration, error) {
-	// Regular expression to match duration components
-	re := regexp.MustCompile(`(\d+)([a-zA-Z]+)`)
-	matches := re.FindAllStringSubmatch(durationStr, -1)
-
+// parseDuration converts "1d 2h 30m" into time.Duration
+func parseDuration(input string) (time.Duration, error) {
+	// Case-insensitive regex, allows spaces between units
+	re := regexp.MustCompile(`(?i)(\d+)\s*(s|sec|secs|m|min|mins|h|hr|hrs|d|day|days)`)
+	matches := re.FindAllStringSubmatch(input, -1)
 	if len(matches) == 0 {
 		return 0, fmt.Errorf("invalid duration format")
 	}
 
-	var totalDuration time.Duration
+	var total time.Duration
 	for _, match := range matches {
-		value, err := strconv.Atoi(match[1])
-		if err != nil {
-			return 0, fmt.Errorf("invalid duration value: %v", err)
-		}
-
-		unit := strings.ToLower(match[2])
-		var duration time.Duration
-		switch unit {
+		value, _ := strconv.Atoi(match[1])
+		switch strings.ToLower(match[2]) {
 		case "s", "sec", "secs":
-			duration = time.Duration(value) * time.Second
+			total += time.Second * time.Duration(value)
 		case "m", "min", "mins":
-			duration = time.Duration(value) * time.Minute
+			total += time.Minute * time.Duration(value)
 		case "h", "hr", "hrs":
-			duration = time.Duration(value) * time.Hour
+			total += time.Hour * time.Duration(value)
 		case "d", "day", "days":
-			duration = time.Duration(value) * 24 * time.Hour
+			total += time.Hour * 24 * time.Duration(value)
 		default:
-			return 0, fmt.Errorf("unknown time unit: %s", unit)
+			return 0, fmt.Errorf("unknown time unit: %s", match[2])
 		}
-
-		totalDuration += duration
 	}
 
-	return totalDuration, nil
+	return total, nil
+}
+
+// formatDuration pretty-prints a duration like "1 day, 2 hours, 5 minutes"
+func formatDuration(d time.Duration) string {
+	days := int(d.Hours()) / 24
+	hours := int(d.Hours()) % 24
+	minutes := int(d.Minutes()) % 60
+	seconds := int(d.Seconds()) % 60
+
+	parts := []string{}
+	if days > 0 {
+		parts = append(parts, fmt.Sprintf("%d day(s)", days))
+	}
+	if hours > 0 {
+		parts = append(parts, fmt.Sprintf("%d hour(s)", hours))
+	}
+	if minutes > 0 {
+		parts = append(parts, fmt.Sprintf("%d minute(s)", minutes))
+	}
+	if seconds > 0 && len(parts) == 0 { // only show seconds if no bigger unit
+		parts = append(parts, fmt.Sprintf("%d second(s)", seconds))
+	}
+
+	if len(parts) == 0 {
+		return "0 seconds"
+	}
+	return strings.Join(parts, ", ")
 }
 
 func RemindMe(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	if len(args) < 2 {
-		s.ChannelMessageSend(m.ChannelID, "Usage: !remindme <duration> <message>\nExample: !remindme 2h30m Take out the trash")
+		s.ChannelMessageSend(m.ChannelID,
+			"Usage: `.remindme <duration> <message>`\nExample: `.remindme 2h30m Take out the trash`")
 		return
 	}
 
-	// Parse duration
-	durationStr := args[0]
-	duration, err := parseDuration(durationStr)
-	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Invalid duration format: %v\nExample: 2h30m, 1d, 30m", err))
+	// First arg is the duration
+	duration, err := parseDuration(args[0])
+	if err != nil || duration <= 0 {
+		s.ChannelMessageSend(m.ChannelID,
+			"Invalid duration. Example: `10m`, `2h30m`, `1d 2h`")
 		return
 	}
 
-	// Validate duration
-	if duration <= 0 {
-		s.ChannelMessageSend(m.ChannelID, "Duration must be positive")
-		return
-	}
-
-	// Get reminder message
-	message := strings.Join(args[1:], " ")
+	// Remaining args are the reminder message
+	message := strings.TrimSpace(strings.Join(args[1:], " "))
 	if message == "" {
-		s.ChannelMessageSend(m.ChannelID, "Please provide a reminder message")
+		s.ChannelMessageSend(m.ChannelID, "Please provide a reminder message.")
 		return
 	}
 
-	// Calculate remind time
-	remindAt := time.Now().Add(duration)
+	remindAt := time.Now().UTC().Add(duration)
 
-	// Insert reminder into database
+	// Insert reminder into DB
 	_, err = b.Db.Exec(`
 		INSERT INTO reminders (user_id, guild_id, message, remind_at, source)
 		VALUES ($1, $2, $3, $4, 'remindme')
 	`, m.Author.ID, m.GuildID, message, remindAt)
 	if err != nil {
 		log.Printf("Error inserting reminder: %v", err)
-		s.ChannelMessageSend(m.ChannelID, "An error occurred while setting your reminder. Please try again.")
+		s.ChannelMessageSend(m.ChannelID, "An error occurred while setting your reminder.")
 		return
 	}
 
-	// Format duration for response
-	var durationParts []string
-	days := int(duration.Hours()) / 24
-	hours := int(duration.Hours()) % 24
-	minutes := int(duration.Minutes()) % 60
-	seconds := int(duration.Seconds()) % 60
-
-	if days > 0 {
-		durationParts = append(durationParts, fmt.Sprintf("%d day(s)", days))
-	}
-	if hours > 0 {
-		durationParts = append(durationParts, fmt.Sprintf("%d hour(s)", hours))
-	}
-	if minutes > 0 {
-		durationParts = append(durationParts, fmt.Sprintf("%d minute(s)", minutes))
-	}
-	if seconds > 0 && len(durationParts) == 0 { // Only show seconds if no other units
-		durationParts = append(durationParts, fmt.Sprintf("%d second(s)", seconds))
-	}
-
-	formattedDuration := strings.Join(durationParts, ", ")
-	if formattedDuration == "" {
-		formattedDuration = "0 seconds"
-	}
-
-	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Reminder set for %s from now: %s", formattedDuration, message))
+	// Confirm to user
+	s.ChannelMessageSend(m.ChannelID,
+		fmt.Sprintf("⏰ Reminder set for **%s** from now: %s",
+			formatDuration(duration), message))
 }

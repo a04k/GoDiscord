@@ -29,9 +29,9 @@ func getUserDailyInfo(b *bot.Bot, guildID, userID string) (lastDaily sql.NullTim
 }
 
 // getMinHoursForRoles calculates the minimum hours based on user's roles
-func getMinHoursForRoles(b *bot.Bot, guildID, userID string) (minHours int, err error) {
+func getMinHoursForRoles(b *bot.Bot, guildID, userID string, s *discordgo.Session) (minHours int, err error) {
 	// Get user's roles
-	member, err := b.Session.GuildMember(guildID, userID)
+	member, err := s.GuildMember(guildID, userID)
 	if err != nil {
 		return 0, err
 	}
@@ -140,7 +140,7 @@ func Work(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 	}
 
 	// Get minimum hours from roles
-	minHours, err := getMinHoursForRoles(b, m.GuildID, m.Author.ID)
+	minHours, err := getMinHoursForRoles(b, m.GuildID, m.Author.ID, s)
 	if err != nil {
 		log.Printf("Error getting role modifiers: %v", err)
 		// Continue with default behavior if role check fails

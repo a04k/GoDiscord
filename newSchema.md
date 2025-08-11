@@ -17,6 +17,7 @@ CREATE TABLE guilds (
     owner_id BIGINT NOT NULL,
     name TEXT,
     currency_name TEXT DEFAULT 'Coins',
+    fpl_leag`ue_id BIGINT, -- Optional: Fantasy Premier League ID for this guild
     settings JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
@@ -83,8 +84,6 @@ CREATE TABLE scheduled_messages (
     sent BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT now()
 );
-
-
 
 -- =====================
 -- INDEXES

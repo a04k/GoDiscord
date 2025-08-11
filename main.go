@@ -11,10 +11,7 @@ import (
 	"DiscordBot/commands/slash"
 	"DiscordBot/commands/sports/f1"
 	"DiscordBot/utils"
-	_ "DiscordBot/commands/admin"
-	_ "DiscordBot/commands/economy"
-	_ "DiscordBot/commands/moderation"
-	_ "DiscordBot/commands/roles"
+
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"

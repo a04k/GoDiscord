@@ -57,7 +57,7 @@ func showUpcomingFixtures(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 		}
 
 		matchTime := time.Unix(int64(match.KickoffTimeUnix), 0)
-		timeStr := matchTime.Format("Mon, Jan 2, 15:04 MST")
+		timeStr := matchTime.Format("Mon, Jan 2, 2006, 15:04 UTC")
 
 		homeTeam := shortNameMap[match.TeamH]
 		awayTeam := shortNameMap[match.TeamA]
@@ -123,7 +123,7 @@ func showClubNextMatch(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCre
 	}
 
 	matchTime := time.Unix(int64(nextMatch.KickoffTimeUnix), 0)
-	timeStr := matchTime.Format("Mon, Jan 2, 15:04 MST")
+	timeStr := matchTime.Format("Mon, Jan 2, 2006, 15:04 UTC")
 
 	venue := "Away"
 	if isHomeTeam {

@@ -8,9 +8,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
 	"DiscordBot/commands"
+	"github.com/bwmarrin/discordgo"
+	"github.com/lib/pq"
 )
 
 func init() {
@@ -55,7 +56,7 @@ func getMinHoursForRoles(b *bot.Bot, guildID, userID string, s *discordgo.Sessio
 		SELECT min_hours
 		FROM role_daily_modifiers
 		WHERE guild_id = $1 AND role_id = ANY($2)
-	`, guildID, roleIDs)
+	`, guildID, pq.Array(roleIDs))
 	if err != nil {
 		return 0, err
 	}

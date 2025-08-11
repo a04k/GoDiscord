@@ -17,7 +17,7 @@ import (
 	_ "DiscordBot/commands/moderation"
 	_ "DiscordBot/commands/roles"
 	
-	_ "DiscordBot/commands/sports/f1"
+	"DiscordBot/commands/sports/f1"
 	_ "DiscordBot/commands/sports/epl"
 	_ "DiscordBot/commands/sports/fpl"
 

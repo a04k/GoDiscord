@@ -22,34 +22,16 @@ func CreateRole(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, ar
 		return
 	}
 
-	// Fetch guild member details
-	member, err := s.GuildMember(m.GuildID, m.Author.ID)
+	// Check if the user has manage roles permission
+	hasManageRoles, err := utils.CheckManageRolesPermission(s, m.GuildID, m.Author.ID)
 	if err != nil {
-		log.Printf("Error fetching member: %v", err)
+		log.Printf("Error checking manage roles permission: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred while verifying permissions.")
 		return
 	}
 
-	// Check if the user has administrative permissions
-	guild, err := s.Guild(m.GuildID)
-	if err != nil {
-		log.Printf("Error fetching guild: %v", err)
-		s.ChannelMessageSend(m.ChannelID, "An error occurred while fetching server information.")
-		return
-	}
-
-	isAdmin := false
-	for _, roleID := range member.Roles {
-		for _, role := range guild.Roles {
-			if role.ID == roleID && role.Permissions&discordgo.PermissionAdministrator != 0 {
-				isAdmin = true
-				break
-			}
-		}
-	}
-
-	if !isAdmin {
-		s.ChannelMessageSend(m.ChannelID, "You must be an administrator to use this command.")
+	if !hasManageRoles {
+		s.ChannelMessageSend(m.ChannelID, "You must have Manage Roles permission to use this command.")
 		return
 	}
 

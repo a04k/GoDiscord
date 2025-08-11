@@ -79,16 +79,57 @@ func RemindMe(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args
 		return
 	}
 
-	// First arg is the duration
-	duration, err := parseDuration(args[0])
-	if err != nil || duration <= 0 {
-		s.ChannelMessageSend(m.ChannelID,
-			"Invalid duration. Example: `10m`, `2h30m`, `1d 2h`")
-		return
+	// Join all args except the command name for parsing duration and message
+	input := strings.Join(args[1:], " ")
+	
+	// Try to parse duration from the beginning of the input
+	var duration time.Duration
+	var message string
+	var err error
+	
+	// Try different patterns to extract duration
+	patterns := []string{
+		`^(\d+d\s*\d+h\s*\d+m\s*\d+s)`,  // 1d 2h 30m 45s
+		`^(\d+d\s*\d+h\s*\d+m)`,         // 1d 2h 30m
+		`^(\d+d\s*\d+h)`,                // 1d 2h
+		`^(\d+d)`,                       // 1d
+		`^(\d+h\s*\d+m\s*\d+s)`,         // 2h 30m 45s
+		`^(\d+h\s*\d+m)`,                // 2h 30m
+		`^(\d+h)`,                       // 2h
+		`^(\d+m\s*\d+s)`,                // 30m 45s
+		`^(\d+m)`,                       // 30m
+		`^(\d+s)`,                       // 45s
+	}
+	
+	durationStr := ""
+	for _, pattern := range patterns {
+		re := regexp.MustCompile(pattern)
+		matches := re.FindStringSubmatch(input)
+		if len(matches) > 1 {
+			durationStr = matches[1]
+			break
+		}
+	}
+	
+	if durationStr == "" {
+		// If no duration found, try to parse the first argument as duration
+		duration, err = parseDuration(args[1])
+		if err != nil || duration <= 0 {
+			s.ChannelMessageSend(m.ChannelID,
+				"Invalid duration. Example: `10m`, `2h30m`, `1d 2h`")
+			return
+		}
+		message = strings.TrimSpace(strings.Join(args[2:], " "))
+	} else {
+		duration, err = parseDuration(durationStr)
+		if err != nil || duration <= 0 {
+			s.ChannelMessageSend(m.ChannelID,
+				"Invalid duration. Example: `10m`, `2h30m`, `1d 2h`")
+			return
+		}
+		message = strings.TrimSpace(input[len(durationStr):])
 	}
 
-	// Remaining args are the reminder message
-	message := strings.TrimSpace(strings.Join(args[1:], " "))
 	if message == "" {
 		s.ChannelMessageSend(m.ChannelID, "Please provide a reminder message.")
 		return

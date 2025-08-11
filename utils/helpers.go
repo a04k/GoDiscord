@@ -19,6 +19,7 @@ func UserExists(s *discordgo.Session, userID string) (bool, error) {
 	return true, nil // User exists
 }
 
+// ExtractUserID extracts the user ID from a mention
 func ExtractUserID(mention string) (string, error) {
 	// Check if the mention is properly formatted
 	if !strings.HasPrefix(mention, "<@") || !strings.HasSuffix(mention, ">") {
@@ -28,6 +29,9 @@ func ExtractUserID(mention string) (string, error) {
 	// Extract the user ID
 	userID := strings.TrimPrefix(strings.TrimSuffix(mention, ">"), "<@")
 
+	// Remove the nickname exclamation mark if present
+	userID = strings.TrimPrefix(userID, "!")
+
 	// Validate that the user ID is a valid Snowflake (Discord ID)
 	if _, err := strconv.ParseUint(userID, 10, 64); err != nil {
 		return "", fmt.Errorf("invalid user ID")
@@ -35,6 +39,7 @@ func ExtractUserID(mention string) (string, error) {
 
 	return userID, nil
 }
+
 
 // permission parsing function
 func ParsePermissions(permVal string) int {
@@ -166,4 +171,62 @@ func GetMutedRole(s *discordgo.Session, guildID string) (*discordgo.Role, error)
 	}
 
 	return mutedRole, nil
+}
+
+// CheckPermission checks if a user has a specific permission in a guild
+func CheckPermission(s *discordgo.Session, guildID, userID string, permission int64) (bool, error) {
+	// Fetch guild member details
+	member, err := s.GuildMember(guildID, userID)
+	if err != nil {
+		return false, fmt.Errorf("error fetching member: %v", err)
+	}
+
+	// Fetch guild roles
+	guild, err := s.Guild(guildID)
+	if err != nil {
+		return false, fmt.Errorf("error fetching guild: %v", err)
+	}
+
+	// Check if the user has the required permission
+	hasPermission := false
+	for _, roleID := range member.Roles {
+		for _, role := range guild.Roles {
+			if role.ID == roleID && role.Permissions&permission != 0 {
+				hasPermission = true
+				break
+			}
+		}
+	}
+
+	return hasPermission, nil
+}
+
+// CheckAdminPermission checks if a user has administrator permissions in a guild
+func CheckAdminPermission(s *discordgo.Session, guildID, userID string) (bool, error) {
+	return CheckPermission(s, guildID, userID, discordgo.PermissionAdministrator)
+}
+
+// CheckManageMessagesPermission checks if a user has manage messages permissions in a guild
+func CheckManageMessagesPermission(s *discordgo.Session, guildID, userID string) (bool, error) {
+	return CheckPermission(s, guildID, userID, discordgo.PermissionManageMessages)
+}
+
+// CheckManageRolesPermission checks if a user has manage roles permissions in a guild
+func CheckManageRolesPermission(s *discordgo.Session, guildID, userID string) (bool, error) {
+	return CheckPermission(s, guildID, userID, discordgo.PermissionManageRoles)
+}
+
+// CheckKickMembersPermission checks if a user has kick members permissions in a guild
+func CheckKickMembersPermission(s *discordgo.Session, guildID, userID string) (bool, error) {
+	return CheckPermission(s, guildID, userID, discordgo.PermissionKickMembers)
+}
+
+// CheckBanMembersPermission checks if a user has ban members permissions in a guild
+func CheckBanMembersPermission(s *discordgo.Session, guildID, userID string) (bool, error) {
+	return CheckPermission(s, guildID, userID, discordgo.PermissionBanMembers)
+}
+
+// CheckMuteMembersPermission checks if a user has mute members permissions in a guild
+func CheckMuteMembersPermission(s *discordgo.Session, guildID, userID string) (bool, error) {
+	return CheckPermission(s, guildID, userID, discordgo.PermissionManageMessages)
 }

@@ -112,15 +112,10 @@ func (b *Bot) IsMod(guildID, userID string) (bool, error) {
 	if hasManageMessages {
 		return true, nil
 	}
-	
-	// Check if user is marked as a moderator in our database
-	var count int
-	err = b.Db.QueryRow("SELECT COUNT(*) FROM permissions WHERE guild_id = $1 AND user_id = $2 AND role = 'moderator'", guildID, userID).Scan(&count)
-	if err != nil {
-		return false, err
-	}
-	
-	return count > 0, nil
+
+	// If we reach here, the user is not an admin/owner and does not have Manage Messages permission.
+	// We no longer rely on a custom 'permissions' table.
+	return false, nil
 }
 
 // calculatePermissions manually calculates a member's permissions in a guild

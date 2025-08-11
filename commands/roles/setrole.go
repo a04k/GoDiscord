@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"log"
 	"strings"
-
+	
 	"github.com/bwmarrin/discordgo"
+	"DiscordBot/utils"
 	"DiscordBot/bot"
 	"DiscordBot/commands"
 )
@@ -20,6 +21,19 @@ func SetRole(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args 
 		return
 	}
 
+	// Check if the user has manage roles permission
+	hasManageRoles, err := utils.CheckManageRolesPermission(s, m.GuildID, m.Author.ID)
+	if err != nil {
+		log.Printf("Error checking manage roles permission: %v", err)
+		s.ChannelMessageSend(m.ChannelID, "An error occurred while verifying permissions.")
+		return
+	}
+
+	if !hasManageRoles {
+		s.ChannelMessageSend(m.ChannelID, "You must have Manage Roles permission to use this command.")
+		return
+	}
+
 	// Extract user mention and role name
 	userMention := args[1]
 	roleName := strings.Join(args[2:], " ")
@@ -30,9 +44,7 @@ func SetRole(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args 
 		return
 	}
 	userID := userMention[2 : len(userMention)-1]
-	if strings.HasPrefix(userID, "!") {
-		userID = userID[1:] // Remove nickname exclamation mark
-	}
+	userID = strings.TrimPrefix(userID, "!") // Remove nickname exclamation mark if present
 
 	// Fetch guild and roles
 	guild, err := s.Guild(m.GuildID)

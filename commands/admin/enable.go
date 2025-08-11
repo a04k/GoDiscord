@@ -7,6 +7,7 @@ import (
 
 	"DiscordBot/bot"
 	"github.com/bwmarrin/discordgo"
+	"DiscordBot/utils"
 	"DiscordBot/commands"
 )
 
@@ -16,14 +17,15 @@ func init() {
 
 // EnableCommand allows server admins to re-enable specific commands or categories in their server
 func EnableCommand(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	isAdmin, err := b.IsAdmin(m.GuildID, m.Author.ID)
+	// Check if the user has administrator permissions
+	hasAdmin, err := utils.CheckAdminPermission(s, m.GuildID, m.Author.ID)
 	if err != nil {
-		log.Printf("Error checking admin status for user %s: %v", m.Author.ID, err)
-		s.ChannelMessageSend(m.ChannelID, "Error checking admin status.")
+		log.Printf("Error checking admin status: %v", err)
+		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
 		return
 	}
 
-	if !isAdmin {
+	if !hasAdmin {
 		s.ChannelMessageSend(m.ChannelID, "You must be a bot administrator to use this command.")
 		return
 	}

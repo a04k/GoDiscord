@@ -20,14 +20,15 @@ func Take(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 		return
 	}
 
-	// Check if the user is an admin
-	isAdmin, err := b.IsAdmin(m.GuildID, m.Author.ID)
+	// Check if the user has administrator permissions
+	hasAdmin, err := utils.CheckAdminPermission(s, m.GuildID, m.Author.ID)
 	if err != nil {
 		log.Printf("Error checking admin status: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
 		return
 	}
-	if !isAdmin {
+
+	if !hasAdmin {
 		s.ChannelMessageSend(m.ChannelID, "You are not authorized to use this command.")
 		return
 	}

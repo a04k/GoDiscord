@@ -15,14 +15,15 @@ func init() {
 }
 
 func VoiceUnmute(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	// Check if the user is an admin or moderator
-	isMod, err := b.IsMod(m.GuildID, m.Author.ID)
+	// Check if the user has mute members permission
+	hasMuteMembers, err := utils.CheckMuteMembersPermission(s, m.GuildID, m.Author.ID)
 	if err != nil {
-		log.Printf("Error checking mod status: %v", err)
+		log.Printf("Error checking mute members permission: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
 		return
 	}
-	if !isMod {
+
+	if !hasMuteMembers {
 		s.ChannelMessageSend(m.ChannelID, "You do not have permission to use this command.")
 		return
 	}

@@ -17,9 +17,15 @@ func init() {
 }
 
 func Ban(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	// Check if the user is an admin
-	isAdmin, err := b.IsAdmin(m.GuildID, m.Author.ID)
-	if err != nil || !isAdmin {
+	// Check if the user has ban members permission
+	hasBanPerm, err := utils.CheckBanMembersPermission(s, m.GuildID, m.Author.ID)
+	if err != nil {
+		log.Printf("Error checking ban members permission: %v", err)
+		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+		return
+	}
+
+	if !hasBanPerm {
 		s.ChannelMessageSend(m.ChannelID, "You do not have permission to use this command.")
 		return
 	}

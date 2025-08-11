@@ -56,7 +56,11 @@ func showUpcomingFixtures(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 			break
 		}
 
-		matchTime := time.Unix(int64(match.KickoffTimeUnix), 0)
+		matchTime, err := time.Parse("2006-01-02T15:04:05Z", match.KickoffTime)
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Error parsing match time. Please try again later.")
+			return
+		}
 		timeStr := matchTime.Format("Mon, Jan 2, 2006, 15:04 UTC")
 
 		homeTeam := shortNameMap[match.TeamH]
@@ -122,7 +126,11 @@ func showClubNextMatch(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCre
 		return
 	}
 
-	matchTime := time.Unix(int64(nextMatch.KickoffTimeUnix), 0)
+	matchTime, err := time.Parse("2006-01-02T15:04:05Z", nextMatch.KickoffTime)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "Error parsing match time. Please try again later.")
+		return
+	}
 	timeStr := matchTime.Format("Mon, Jan 2, 2006, 15:04 UTC")
 
 	venue := "Away"
@@ -191,12 +199,12 @@ func getTeamsData() ([]FPLTeam, error) {
 }
 
 type FPLFixture struct {
-	ID              int  `json:"id"`
-	TeamH           int  `json:"team_h"`
-	TeamA           int  `json:"team_a"`
-	KickoffTimeUnix int  `json:"kickoff_time_unix"`
-	Event           int  `json:"event"`
-	Finished        bool `json:"finished"`
+	ID          int    `json:"id"`
+	TeamH       int    `json:"team_h"`
+	TeamA       int    `json:"team_a"`
+	KickoffTime string `json:"kickoff_time"`
+	Event       int    `json:"event"`
+	Finished    bool   `json:"finished"`
 }
 
 type FPLTeam struct {

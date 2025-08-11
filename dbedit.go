@@ -48,7 +48,7 @@ func main() {
 	// Drop existing tables in correct order to avoid foreign key constraint issues
 	fmt.Println("Dropping existing tables...")
 	tables := []string{
-		"reminders", "scheduled_messages", "transactions", "role_daily_modifiers",
+		"reminders", "scheduled_messages", "role_daily_modifiers",
 		"guild_members", "disabled_commands", "permissions", "guilds", "users",
 	}
 
@@ -122,6 +122,7 @@ func main() {
 			guild_id BIGINT NOT NULL REFERENCES guilds(guild_id) ON DELETE CASCADE,
 			role_id BIGINT NOT NULL,
 			min_hours INT NOT NULL,
+			multiplier FLOAT DEFAULT 1.0,
 			PRIMARY KEY (guild_id, role_id)
 		)
 	`)
@@ -183,32 +184,13 @@ func main() {
 	}
 	fmt.Println("scheduled_messages table created successfully.")
 
-	// Create transactions table
-	fmt.Println("Creating transactions table...")
-	_, err = tx.Exec(`
-		CREATE TABLE transactions (
-			transaction_id BIGSERIAL PRIMARY KEY,
-			guild_id BIGINT NOT NULL REFERENCES guilds(guild_id) ON DELETE CASCADE,
-			user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-			amount BIGINT NOT NULL,
-			balance_before BIGINT,
-			balance_after BIGINT,
-			reason TEXT,
-			meta JSONB,
-			created_at TIMESTAMPTZ DEFAULT now()
-		)
-	`)
-	if err != nil {
-		log.Fatal("Failed to create transactions table:", err)
-	}
-	fmt.Println("transactions table created successfully.")
+	
 
 	// Create indexes
 	fmt.Println("Creating indexes...")
 	indexes := []string{
 		"CREATE INDEX idx_gm_guild_balance_desc ON guild_members (guild_id, balance DESC)",
 		"CREATE INDEX idx_gm_user ON guild_members (user_id)",
-		"CREATE INDEX idx_tx_guild_time ON transactions (guild_id, created_at DESC)",
 		"CREATE INDEX idx_reminders_due ON reminders (sent, remind_at)",
 		"CREATE INDEX idx_scheduled_due ON scheduled_messages (sent, send_at)",
 	}

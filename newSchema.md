@@ -42,6 +42,7 @@ CREATE TABLE role_daily_modifiers (
     guild_id BIGINT NOT NULL REFERENCES guilds(guild_id) ON DELETE CASCADE,
     role_id BIGINT NOT NULL,
     min_hours INT NOT NULL,
+    multiplier FLOAT DEFAULT 1.0,
     PRIMARY KEY (guild_id, role_id)
 );
 
@@ -83,26 +84,13 @@ CREATE TABLE scheduled_messages (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- =====================
--- TRANSACTIONS (economy audit)
--- =====================
-CREATE TABLE transactions (
-    transaction_id BIGSERIAL PRIMARY KEY,
-    guild_id BIGINT NOT NULL REFERENCES guilds(guild_id) ON DELETE CASCADE,
-    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    amount BIGINT NOT NULL,
-    balance_before BIGINT,
-    balance_after BIGINT,
-    reason TEXT,
-    meta JSONB,
-    created_at TIMESTAMPTZ DEFAULT now()
-);
+
 
 -- =====================
 -- INDEXES
 -- =====================
 CREATE INDEX idx_gm_guild_balance_desc ON guild_members (guild_id, balance DESC);
 CREATE INDEX idx_gm_user ON guild_members (user_id);
-CREATE INDEX idx_tx_guild_time ON transactions (guild_id, created_at DESC);
+
 CREATE INDEX idx_reminders_due ON reminders (sent, remind_at);
 CREATE INDEX idx_scheduled_due ON scheduled_messages (sent, send_at);

@@ -163,22 +163,7 @@ func Transfer(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args
 		return
 	}
 
-	// Log transactions
-	_, err = b.Db.Exec(`
-		INSERT INTO transactions (guild_id, user_id, amount, balance_before, balance_after, reason)
-		VALUES ($1, $2, $3, $4, $5, 'transfer_sent')
-	`, m.GuildID, m.Author.ID, -amount, senderBalance, senderBalance-amount)
-	if err != nil {
-		log.Printf("Error logging sender transaction: %v", err)
-	}
-
-	_, err = b.Db.Exec(`
-		INSERT INTO transactions (guild_id, user_id, amount, balance_before, balance_after, reason)
-		VALUES ($1, $2, $3, $4, $5, 'transfer_received')
-	`, m.GuildID, recipientID, amount, recipientBalance, recipientBalance+amount)
-	if err != nil {
-		log.Printf("Error logging recipient transaction: %v", err)
-	}
+	
 
 	// Notify sender and recipient
 	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("You transferred %d coins to <@%s>.", amount, recipientID))

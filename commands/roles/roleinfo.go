@@ -9,7 +9,12 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
 	"DiscordBot/utils"
+	"DiscordBot/commands"
 )
+
+func init() {
+	commands.RegisterCommand("roleinfo", RoleInfo, "ri")
+}
 
 func RoleInfo(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	if len(args) < 2 {
@@ -68,7 +73,7 @@ func RoleInfo(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args
 
 			{Name: "Mentionable", Value: map[bool]string{true: "Yes", false: "No"}[targetRole.Mentionable], Inline: true},
 			{Name: "Managed", Value: map[bool]string{true: "Yes", false: "No"}[targetRole.Managed], Inline: true},
-			{Name: "\u200b", Value: "\u200b", Inline: true},
+			{Name: "\u200B", Value: "\u200B", Inline: true},
 
 			{Name: "Key Permissions", Value: "```\n" + permString + "\n```", Inline: false},
 			{Name: "Created At", Value: createdTime.Format("January 2, 2006"), Inline: false},

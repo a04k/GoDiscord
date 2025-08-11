@@ -5,28 +5,26 @@ import (
 	"log"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
+	"DiscordBot/commands"
 	"DiscordBot/utils"
+	"github.com/bwmarrin/discordgo"
 )
 
+func init() {
+	commands.RegisterCommand("voicemute", VoiceMute, "vm")
+}
+
 func VoiceMute(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	// Check if the user is an admin or moderator
-	isMod, err := utils.IsModerator(b.Db, m.Author.ID)
+	// Check if the user has mute members permission
+	hasMuteMembers, err := utils.CheckMuteMembersPermission(s, m.GuildID, m.Author.ID)
 	if err != nil {
-		log.Printf("Error checking mod status: %v", err)
+		log.Printf("Error checking mute members permission: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
 		return
 	}
 
-	isOwner, err := utils.IsAdmin(b.Db, m.Author.ID)
-	if err != nil {
-		log.Printf("Error checking admin status: %v", err)
-		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-		return
-	}
-
-	if !isMod && !isOwner {
+	if !hasMuteMembers {
 		s.ChannelMessageSend(m.ChannelID, "You do not have permission to use this command.")
 		return
 	}

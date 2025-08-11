@@ -1,119 +1,109 @@
 package commands
 
 import (
+	"database/sql"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
-	"DiscordBot/utils"
 )
 
+func init() {
+	RegisterCommand("help", Help, "h")
+}
+
 func Help(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	if len(args) < 2 {
-		embed := &discordgo.MessageEmbed{
-			Title:       "Usage:",
-			Description: ".h / .help [commandname] \n Use .cl / .commandlist to view all commands",
-			Color:       0x0000FF, //blue left bar for commands list
+	// Ensure command is used in a guild
+	if m.GuildID == "" {
+		return // Don't respond to DMs
+	}
+
+	if len(args) > 1 {
+		commandName := strings.ToLower(args[1])
+		
+		// Resolve alias to actual command name
+		if actualName, isAlias := CommandAliases[commandName]; isAlias {
+			commandName = actualName
+		}
+		
+		// Check if the command exists
+		commandInfo, exists := CommandDetails[commandName]
+		if !exists {
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Command `%s` not found.", commandName))
+			return
+		}
+		
+		// Check if the command is disabled
+		var count int
+		err := b.Db.QueryRow("SELECT COUNT(*) FROM disabled_commands WHERE guild_id = $1 AND name = $2 AND type = 'command'",
+			m.GuildID, commandName).Scan(&count)
+		if err != nil && err != sql.ErrNoRows {
+			log.Printf("Error checking if command %s is disabled in guild %s: %v", commandName, m.GuildID, err)
+		} else if count > 0 {
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Command `%s` is disabled.", commandName))
+			return
 		}
 
+		// Check if the command's category is disabled
+		category := commandInfo.Category
+		err = b.Db.QueryRow("SELECT COUNT(*) FROM disabled_commands WHERE guild_id = $1 AND name = $2 AND type = 'category'",
+			m.GuildID, strings.ToLower(category)).Scan(&count)
+		if err != nil && err != sql.ErrNoRows {
+			log.Printf("Error checking if category %s is disabled in guild %s: %v", category, m.GuildID, err)
+		} else if count > 0 {
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Command `%s` is in category `%s` which is disabled.", commandName, category))
+			return
+		}
+		
+		// Build help embed for the specific command
+		embed := &discordgo.MessageEmbed{
+			Title:       fmt.Sprintf("Help: %s", commandInfo.Name),
+			Description: commandInfo.Description,
+			Color:       0x00ff00,
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name:  "Usage",
+					Value: fmt.Sprintf("`%s`", commandInfo.Usage),
+				},
+			},
+		}
+		
+		// Add aliases if they exist
+		if len(commandInfo.Aliases) > 0 {
+			aliases := strings.Join(commandInfo.Aliases, ", ")
+			embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+				Name:  "Aliases",
+				Value: aliases,
+			})
+		}
+		
+		// Add category
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:  "Category",
+			Value: commandInfo.Category,
+		})
+		
 		s.ChannelMessageSendEmbed(m.ChannelID, embed)
 		return
 	}
 
-	// If a command is specified, display individual command help
-	command := strings.ToLower(args[1])
-	var response string
-	noPermissionMessage := "You do not have permission to access this command."
-
-	// Check if the user is an admin or mod
-	isMod, _ := utils.IsModerator(b.Db, m.Author.ID)
-	isOwner, _ := utils.IsAdmin(b.Db, m.Author.ID)
-
-	switch command {
-	case "bal", "balance":
-		response = ".bal or .balance\nCheck your balance."
-
-	case "work":
-		response = ".work\nEarn coins (6h cooldown)."
-
-	case "flip":
-		response = ".flip <amount / all>\nGamble coins: (specified amount / all)."
-
-	case "transfer":
-		response = ".transfer <@user> <amount>\nSend coins to another user."
-
-	case "usd":
-		response = ".usd [amount]\nUSD to EGP exchange rate."
-
-	case "btc":
-		response = ".btc\nBitcoin price in USD."
-
-	case "setup":
-		response = "/setup <landline> <password>\nSave WE credentials."
-
-	case "quota":
-		response = "/quota\nCheck internet quota (after setup)."
-
-	// Admin Commands
-	case "add":
-		if isOwner {
-			response = ".add <@user> <amount>\nAdmin: Add coins to a user."
-		} else {
-			response = noPermissionMessage
-		}
-
-	case "sa":
-		if isOwner {
-			response = ".sa <@user>\nAdmin: Promote a user to admin."
-		} else {
-			response = noPermissionMessage
-		}
-
-	case "createrole":
-		if isOwner {
-			response = ".createrole <role name> [color] [permissions] [hoist]\nCreate a new role with options for color, permissions, and hoisting."
-		} else {
-			response = noPermissionMessage
-		}
-
-	case "setrole", "sr":
-		if isOwner || isMod {
-			response = ".setrole <@user> <role name>\nGives the user the role."
-		} else {
-			response = noPermissionMessage
-		}
-
-	case "inrole":
-		if isOwner || isMod {
-			response = ".inrole <role name or mention>\nView all users in a specific role."
-		} else {
-			response = noPermissionMessage
-		}
-
-	case "roleinfo", "ri":
-		if isOwner || isMod {
-			response = ".ri / roleinfo <role name or mention>\nView role information."
-		} else {
-			response = noPermissionMessage
-		}
-
-	case "ban":
-		if isOwner {
-			response = ".ban <@user> [reason] [days]\nBan a user with optional reason and days of message deletion."
-		} else {
-			response = noPermissionMessage
-		}
-
-	default:
-		response = "Command not found. Use .help to get a list of available commands."
-	}
-
-	// Send command help in an embed
+	// General help - show categories
 	embed := &discordgo.MessageEmbed{
-		Title:       fmt.Sprintf("Help: %s", command),
-		Description: response,
-		Color:       0xFF0000, // red left bar for command help
+		Title:       "Help",
+		Description: "Here is a list of command categories. For more information on a specific command, type `.help <command>`.",
+		Color:       0x00ff00,
 	}
+
+	// Add a field for each category
+	for category := range CommandCategories {
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:   category,
+			Value:  fmt.Sprintf("`.help %s` for commands in this category", strings.ToLower(category)),
+			Inline: false,
+		})
+	}
+
 	s.ChannelMessageSendEmbed(m.ChannelID, embed)
 }

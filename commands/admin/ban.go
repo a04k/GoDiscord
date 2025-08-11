@@ -6,15 +6,26 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
+	"DiscordBot/commands"
 	"DiscordBot/utils"
+	"github.com/bwmarrin/discordgo"
 )
 
+func init() {
+	commands.RegisterCommand("ban", Ban)
+}
+
 func Ban(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	// Check if the user is the owner
-	isOwner, err := utils.IsAdmin(b.Db, m.Author.ID) // Assuming utils.IsAdmin checks if the user is the owner
-	if err != nil || !isOwner {
+	// Check if the user has ban members permission
+	hasBanPerm, err := utils.CheckBanMembersPermission(s, m.GuildID, m.Author.ID)
+	if err != nil {
+		log.Printf("Error checking ban members permission: %v", err)
+		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+		return
+	}
+
+	if !hasBanPerm {
 		s.ChannelMessageSend(m.ChannelID, "You do not have permission to use this command.")
 		return
 	}

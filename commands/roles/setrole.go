@@ -4,14 +4,33 @@ import (
 	"fmt"
 	"log"
 	"strings"
-
+	
 	"github.com/bwmarrin/discordgo"
+	"DiscordBot/utils"
 	"DiscordBot/bot"
+	"DiscordBot/commands"
 )
+
+func init() {
+	commands.RegisterCommand("setrole", SetRole, "sr")
+}
 
 func SetRole(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	if len(args) < 3 {
 		s.ChannelMessageSend(m.ChannelID, "Usage: .setrole/sr <@user> <role name or mention>")
+		return
+	}
+
+	// Check if the user has manage roles permission
+	hasManageRoles, err := utils.CheckManageRolesPermission(s, m.GuildID, m.Author.ID)
+	if err != nil {
+		log.Printf("Error checking manage roles permission: %v", err)
+		s.ChannelMessageSend(m.ChannelID, "An error occurred while verifying permissions.")
+		return
+	}
+
+	if !hasManageRoles {
+		s.ChannelMessageSend(m.ChannelID, "You must have Manage Roles permission to use this command.")
 		return
 	}
 
@@ -25,9 +44,7 @@ func SetRole(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args 
 		return
 	}
 	userID := userMention[2 : len(userMention)-1]
-	if strings.HasPrefix(userID, "!") {
-		userID = userID[1:] // Remove nickname exclamation mark
-	}
+	userID = strings.TrimPrefix(userID, "!") // Remove nickname exclamation mark if present
 
 	// Fetch guild and roles
 	guild, err := s.Guild(m.GuildID)
@@ -90,8 +107,13 @@ func SetRole(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args 
 	// Add the role to the target user
 	err = s.GuildMemberRoleAdd(m.GuildID, userID, targetRole.ID)
 	if err != nil {
-		log.Printf("Error adding role: %v", err)
-		s.ChannelMessageSend(m.ChannelID, "An error occurred while adding the role to the user.")
+		// Check if the error is due to role hierarchy
+		if strings.Contains(err.Error(), "Missing Permissions") || strings.Contains(err.Error(), "role hierarchy") {
+			s.ChannelMessageSend(m.ChannelID, "I cannot add this role because it is higher than my highest role or due to missing permissions.")
+		} else {
+			log.Printf("Error adding role: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred while adding the role to the user.")
+		}
 		return
 	}
 

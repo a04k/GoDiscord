@@ -1,19 +1,28 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"os"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
-	"github.com/joho/godotenv"
 	"DiscordBot/bot"
 	"DiscordBot/commands"
-	"DiscordBot/commands/admin"
-	"DiscordBot/commands/economy"
-	"DiscordBot/commands/moderation"
-	"DiscordBot/commands/roles"
 	"DiscordBot/commands/slash"
+
+	"DiscordBot/utils"
+	
+	_ "DiscordBot/commands/admin"
+	_ "DiscordBot/commands/economy"
+	_ "DiscordBot/commands/moderation"
+	_ "DiscordBot/commands/roles"
+	
+	"DiscordBot/commands/sports/f1"
+	_ "DiscordBot/commands/sports/epl"
+	_ "DiscordBot/commands/sports/fpl"
+
+	"github.com/bwmarrin/discordgo"
+	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -29,6 +38,28 @@ func main() {
 			return
 		}
 
+		// Prevent commands from being used in DMs (except for specific allowed commands)
+		if m.GuildID == "" {
+			// Allow specific commands in DMs like F1 notifications
+			args := strings.Fields(m.Content)
+			if len(args) > 0 && strings.HasPrefix(m.Content, ".") {
+				cmd := strings.ToLower(args[0][1:])
+				// Add commands that are allowed in DMs
+				allowedDMCommands := map[string]bool{
+					"f1": true, "f1results": true, "f1standings": true, "f1wdc": true,
+					"f1wcc": true, "qualiresults": true, "nextf1session": true, "f1sub": true,
+				}
+				if !allowedDMCommands[cmd] {
+					return // Ignore commands in DMs that aren't explicitly allowed
+				}
+			} else {
+				return // No command provided or not a command
+			}
+		}
+
+		// When a message is sent in a guild, we no longer need to ensure the user exists in the database
+		// Permissions are now checked directly with Discord
+
 		if !strings.HasPrefix(m.Content, ".") {
 			return
 		}
@@ -36,50 +67,49 @@ func main() {
 		args := strings.Fields(m.Content)
 		cmd := strings.ToLower(args[0][1:])
 
-		switch cmd {
-		case "help", "h":
-			commands.Help(bot, s, m, args)
-		case "commandlist", "cl":
-			commands.CommandList(bot, s, m, args)
-		case "usd":
-			commands.USD(bot, s, m, args)
-		case "btc":
-			commands.BTC(bot, s, m, args)
-		case "bal", "balance":
-			economy.Balance(bot, s, m, args)
-		case "work":
-			economy.Work(bot, s, m, args)
-		case "transfer":
-			economy.Transfer(bot, s, m, args)
-		case "flip":
-			economy.Flip(bot, s, m, args)
-		case "kick":
-			admin.Kick(bot, s, m, args)
-		case "mute", "m":
-			moderation.Mute(bot, s, m, args)
-		case "unmute", "um":
-			moderation.Unmute(bot, s, m, args)
-		case "voicemute", "vm":
-			moderation.VoiceMute(bot, s, m, args)
-		case "vunmute", "vum":
-			moderation.VoiceUnmute(bot, s, m, args)
-		case "ban":
-			admin.Ban(bot, s, m, args)
-		case "unban":
-			admin.Unban(bot, s, m, args)
-		case "setadmin", "sa":
-			admin.SetAdmin(bot, s, m, args)
-		case "add":
-			admin.Add(bot, s, m, args)
-		case "createrole", "cr":
-			roles.CreateRole(bot, s, m, args)
-		case "setrole", "sr":
-			roles.SetRole(bot, s, m, args)
-		case "inrole":
-			roles.InRole(bot, s, m, args)
-		case "roleinfo", "ri":
-			roles.RoleInfo(bot, s, m, args)
+		// Resolve alias first
+		cmdName, ok := commands.CommandAliases[cmd]
+		if !ok {
+			cmdName = cmd
 		}
+
+		// Check if the command is disabled in this guild
+		if m.GuildID != "" {
+			var count int
+			// Check for disabled command
+			err := bot.Db.QueryRow("SELECT COUNT(*) FROM disabled_commands WHERE guild_id = $1 AND name = $2 AND type = 'command'",
+				m.GuildID, cmdName).Scan(&count)
+			if err != nil && err != sql.ErrNoRows {
+				log.Printf("Error checking if command %s is disabled in guild %s: %v", cmdName, m.GuildID, err)
+			} else if count > 0 {
+				return // Command is disabled
+			}
+
+			// Check if the command's category is disabled
+			for category, cmds := range commands.CommandCategories {
+				for _, c := range cmds {
+					if c == cmdName {
+						err := bot.Db.QueryRow("SELECT COUNT(*) FROM disabled_commands WHERE guild_id = $1 AND name = $2 AND type = 'category'",
+							m.GuildID, strings.ToLower(category)).Scan(&count)
+						if err != nil && err != sql.ErrNoRows {
+							log.Printf("Error checking if category %s is disabled in guild %s: %v", category, m.GuildID, err)
+						} else if count > 0 {
+							return // Category is disabled
+						}
+						break
+					}
+				}
+			}
+		}
+
+		if handler, ok := commands.CommandMap[cmdName]; ok {
+			handler(bot, s, m, args)
+		}
+	})
+
+	// Add reaction handler for pagination
+	bot.Client.AddHandler(func(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
+		commands.HandlePagination(s, r)
 	})
 
 	bot.Client.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -88,10 +118,12 @@ func main() {
 		}
 
 		switch i.ApplicationCommandData().Name {
-		case "quota":
-			slash.Quota(bot, s, i)
-		case "setup":
-			slash.Setup(bot, s, i)
+		case "wequota":
+			slash.WEQuota(bot, s, i)
+		case "wesetup":
+			slash.WEAccountSetup(bot, s, i)
+		case "f1":
+			slash.F1SubscriptionToggle(bot, s, i)
 		}
 	})
 
@@ -100,9 +132,19 @@ func main() {
 		log.Fatalf("error opening connection to Discord: %v", err)
 	}
 
+	// Register slash commands
+	slash.RegisterCommands(bot.Client, "")
+
+	// Start F1 Notifier
+	f1Notifier := f1.NewF1Notifier(bot.Client, bot.Db)
+	go f1Notifier.Start()
+
+	// Start Reminder Service
+	reminderService := utils.NewReminderService(bot.Db, bot.Client)
+	go reminderService.Start()
+
 	defer bot.Client.Close()
 
 	log.Println("Bot is now running. Press CTRL-C to exit.")
-	// Wait here until the program is interrupted
 	select {}
 }

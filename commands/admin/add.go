@@ -1,14 +1,18 @@
 package admin
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
+	"DiscordBot/commands"
 	"DiscordBot/utils"
+	"github.com/bwmarrin/discordgo"
 )
+
+func init() {
+	commands.RegisterCommand("add", Add)
+}
 
 func Add(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	if len(args) < 3 {
@@ -16,14 +20,15 @@ func Add(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []st
 		return
 	}
 
-	// Check if the user is an admin
-	isAdmin, err := utils.IsAdmin(b.Db, m.Author.ID)
+	// Check if the user has administrator permissions
+	hasAdmin, err := utils.CheckAdminPermission(s, m.GuildID, m.Author.ID)
 	if err != nil {
 		log.Printf("Error checking admin status: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
 		return
 	}
-	if !isAdmin {
+
+	if !hasAdmin {
 		s.ChannelMessageSend(m.ChannelID, "You are not authorized to use this command.")
 		return
 	}
@@ -46,28 +51,8 @@ func Add(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []st
 		return
 	}
 
-	// Check if the recipient exists
-	var recipientBalance int
-	err = b.Db.QueryRow("SELECT balance FROM users WHERE user_id = $1", recipientID).Scan(&recipientBalance)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			// Recipient doesn't exist, create a new row for them with a balance of 0
-			_, err = b.Db.Exec("INSERT INTO users (user_id, balance) VALUES ($1, 0)", recipientID)
-			if err != nil {
-				log.Printf("Error creating user: %v", err)
-				s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-				return
-			}
-			recipientBalance = 0 // Set balance to 0 for the new user
-		} else {
-			log.Printf("Error querying recipient balance: %v", err)
-			s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-			return
-		}
-	}
-
 	// Add coins to the recipient
-	_, err = b.Db.Exec("UPDATE users SET balance = balance + $1 WHERE user_id = $2", amount, recipientID)
+	_, err = b.Db.Exec("UPDATE users SET balance = balance + $1 WHERE guild_id = $2 AND user_id = $3", amount, m.GuildID, recipientID)
 	if err != nil {
 		log.Printf("Error adding coins to user: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")

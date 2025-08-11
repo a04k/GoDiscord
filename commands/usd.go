@@ -11,6 +11,10 @@ import (
 	"DiscordBot/bot"
 )
 
+func init() {
+	RegisterCommand("usd", USD)
+}
+
 func USD(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	// default amount = 1
 	amount := 1.0

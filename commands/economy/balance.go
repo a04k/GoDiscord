@@ -4,12 +4,22 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
+	"DiscordBot/commands"
 	"DiscordBot/utils"
+	"github.com/bwmarrin/discordgo"
 )
 
+func init() {
+	commands.RegisterCommand("balance", Balance, "bal", "$")
+}
+
 func Balance(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
+	// Ensure command is used in a guild
+	if m.GuildID == "" {
+		return // Don't respond to DMs
+	}
+
 	var targetUserID string
 	// Check if a mention is provided & validate
 	if len(args) >= 2 {
@@ -33,21 +43,36 @@ func Balance(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args 
 		targetUserID = m.Author.ID
 	}
 
-	// register the user if they don't exist
+	// Ensure user exists in global users table
 	_, err := b.Db.Exec(`
-        INSERT INTO users (user_id, balance)
-        VALUES ($1, $2)
-        ON CONFLICT (user_id) DO NOTHING`,
-		targetUserID, 0)
+		INSERT INTO users (user_id, username, avatar, created_at, updated_at)
+		VALUES ($1, $2, $3, NOW(), NOW())
+		ON CONFLICT (user_id) DO UPDATE SET
+			username = EXCLUDED.username,
+			avatar = EXCLUDED.avatar,
+			updated_at = NOW()
+	`, targetUserID, m.Author.Username, m.Author.AvatarURL(""))
 	if err != nil {
-		log.Printf("Error in user registration: %v", err)
+		log.Printf("Error upserting user: %v", err)
+		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+		return
+	}
+
+	// Ensure user exists in guild_members table
+	_, err = b.Db.Exec(`
+		INSERT INTO guild_members (guild_id, user_id, joined_at)
+		VALUES ($1, $2, NOW())
+		ON CONFLICT (guild_id, user_id) DO NOTHING
+	`, m.GuildID, targetUserID)
+	if err != nil {
+		log.Printf("Error ensuring guild member: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
 		return
 	}
 
 	// Now query their balance (will exist due to prior insert)
 	var balance int
-	err = b.Db.QueryRow("SELECT balance FROM users WHERE user_id = $1", targetUserID).Scan(&balance)
+	err = b.Db.QueryRow("SELECT balance FROM guild_members WHERE guild_id = $1 AND user_id = $2", m.GuildID, targetUserID).Scan(&balance)
 	if err != nil {
 		log.Printf("Error querying balance: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")

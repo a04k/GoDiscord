@@ -10,6 +10,7 @@ import (
 	"DiscordBot/commands"
 	"DiscordBot/commands/slash"
 	"DiscordBot/commands/sports/f1"
+	"DiscordBot/utils"
 	_ "DiscordBot/commands/admin"
 	_ "DiscordBot/commands/economy"
 	_ "DiscordBot/commands/moderation"
@@ -132,6 +133,10 @@ func main() {
 	// Start F1 Notifier
 	f1Notifier := f1.NewF1Notifier(bot.Client, bot.Db)
 	go f1Notifier.Start()
+
+	// Start Reminder Service
+	reminderService := utils.NewReminderService(bot.Db, bot.Client)
+	go reminderService.Start()
 
 	defer bot.Client.Close()
 

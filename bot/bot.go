@@ -165,7 +165,21 @@ func (b *Bot) calculatePermissions(guildID string, member *discordgo.Member) int
 }
 
 func (b *Bot) guildCreate(s *discordgo.Session, event *discordgo.GuildCreate) {
-	// No need to set permissions in database anymore
-	// Permissions are now checked directly with Discord
+	// Insert or update the guild in the database
+	_, err := b.Db.Exec("INSERT INTO guilds (guild_id, owner_id, name) VALUES ($1, $2, $3) ON CONFLICT (guild_id) DO UPDATE SET owner_id = $2, name = $3", 
+		event.Guild.ID, event.Guild.OwnerID, event.Guild.Name)
+	if err != nil {
+		log.Printf("Failed to insert/update guild: %v", err)
+		return
+	}
+	
+	// Insert the guild owner into the users table if not exists
+	_, err = b.Db.Exec("INSERT INTO users (guild_id, user_id) VALUES ($1, $2) ON CONFLICT (guild_id, user_id) DO NOTHING", 
+		event.Guild.ID, event.Guild.OwnerID)
+	if err != nil {
+		log.Printf("Failed to insert guild owner into users table: %v", err)
+		return
+	}
+	
 	log.Printf("Bot joined guild %s (ID: %s)", event.Guild.Name, event.Guild.ID)
 }

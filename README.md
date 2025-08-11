@@ -59,10 +59,18 @@ If you're only here for the WE Api, run the `test.go` folder in the `QCheckWE` d
 
 ### **2. Database Schema**
 ```sql
+CREATE TABLE IF NOT EXISTS guilds (
+    guild_id TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL,
+    name TEXT
+);
+
 CREATE TABLE IF NOT EXISTS users (
-    user_id TEXT PRIMARY KEY,
+    guild_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
     balance INTEGER DEFAULT 0,
-    last_daily TIMESTAMP
+    last_daily TIMESTAMP,
+    PRIMARY KEY (guild_id, user_id)
 );
 ```
 

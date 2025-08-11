@@ -96,7 +96,7 @@ func (fn *F1Notifier) checkAndNotify() {
 					scheduleMessage += fmt.Sprintf("**%s**: <t:%d:F>\n", session.Name, sessionTime.Unix())
 				}
 				
-				fn.notifySubscribers(scheduleMessage)
+				fn.scheduleNotifications(scheduleMessage, "f1_event")
 				fn.lastNotifiedEvent[eventID] = now
 			}
 		}
@@ -120,10 +120,11 @@ func (fn *F1Notifier) checkAndNotify() {
 			if sessionTime.After(now) && sessionTime.Before(now.Add(notificationOffset)) {
 				sessionID := fmt.Sprintf("%s-%s", event.Name, session.Name)
 				if _, ok := fn.lastNotifiedSession[sessionID]; !ok {
-					fn.notifySubscribers(fmt.Sprintf(`
+					message := fmt.Sprintf(`
 F1 Session Reminder: **%s** (%s) starts in 30 minutes! (<t:%d:R>)`,
 						session.Name, event.Name, sessionTime.Unix(),
-					))
+					)
+					fn.scheduleNotifications(message, "f1_session")
 					fn.lastNotifiedSession[sessionID] = now
 				}
 			}
@@ -131,7 +132,8 @@ F1 Session Reminder: **%s** (%s) starts in 30 minutes! (<t:%d:R>)`,
 	}
 }
 
-func (fn *F1Notifier) notifySubscribers(message string) {
+func (fn *F1Notifier) scheduleNotifications(message string, source string) {
+	// Get all users subscribed to F1 notifications
 	rows, err := fn.DB.Query("SELECT user_id FROM f1_subscriptions")
 	if err != nil {
 		log.Printf("Error querying F1 subscriptions: %v", err)
@@ -146,18 +148,13 @@ func (fn *F1Notifier) notifySubscribers(message string) {
 			continue
 		}
 
-		// Create DM channel and send message
-		channel, err := fn.Session.UserChannelCreate(userID)
+		// Schedule a reminder for this user
+		_, err = fn.DB.Exec(`
+			INSERT INTO reminders (user_id, message, remind_at, source)
+			VALUES ($1, $2, NOW(), $3)
+		`, userID, message, source)
 		if err != nil {
-			log.Printf("Error creating DM channel for user %s: %v", userID, err)
-			continue
-		}
-
-		_, err = fn.Session.ChannelMessageSend(channel.ID, message)
-		if err != nil {
-			log.Printf("Error sending DM to user %s: %v", userID, err)
-		} else {
-			log.Printf("Sent F1 notification to user %s", userID)
+			log.Printf("Error scheduling F1 notification for user %s: %v", userID, err)
 		}
 	}
 

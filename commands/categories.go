@@ -1,8 +1,8 @@
 package commands
 
 var CommandCategories = map[string][]string{
-	"General":      {"help", "commandlist", "usd", "btc"},
-	"Economy":      {"balance", "work", "transfer", "flip"},
+	"General":      {"help", "commandlist", "usd", "btc", "remindme"},
+	"Economy":      {"balance", "work", "transfer", "flip", "setdailyrole", "removedailyrole", "listdailyroles"},
 	"F1":           {"f1", "f1results", "f1standings", "f1wdc", "f1wcc", "qualiresults", "nextf1session", "f1sub"},
 	"Moderation":   {"kick", "mute", "unmute", "voicemute", "vunmute", "ban", "unban"},
 	"Admin":        {"setadmin", "add", "take", "disable", "enable"},

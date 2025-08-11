@@ -13,10 +13,25 @@ func init() {
 }
 
 func F1Subscribe(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
+	// Ensure user exists in global users table
+	_, err := b.Db.Exec(`
+		INSERT INTO users (user_id, username, avatar, created_at, updated_at)
+		VALUES ($1, $2, $3, NOW(), NOW())
+		ON CONFLICT (user_id) DO UPDATE SET
+			username = EXCLUDED.username,
+			avatar = EXCLUDED.avatar,
+			updated_at = NOW()
+	`, m.Author.ID, m.Author.Username, m.Author.AvatarURL(""))
+	if err != nil {
+		log.Printf("Error upserting user: %v", err)
+		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+		return
+	}
+
 	userID := m.Author.ID
 
 	var exists bool
-	err := b.Db.QueryRow("SELECT EXISTS(SELECT 1 FROM f1_subscriptions WHERE user_id = $1)", userID).Scan(&exists)
+	err = b.Db.QueryRow("SELECT EXISTS(SELECT 1 FROM f1_subscriptions WHERE user_id = $1)", userID).Scan(&exists)
 	if err != nil {
 		log.Printf("Error checking F1 subscription status for user %s: %v", userID, err)
 		s.ChannelMessageSend(m.ChannelID, "An error occurred while checking your subscription status.")

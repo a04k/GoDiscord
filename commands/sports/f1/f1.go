@@ -15,6 +15,21 @@ func init() {
 }
 
 func F1(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
+	// Ensure user exists in global users table
+	_, err := b.Db.Exec(`
+		INSERT INTO users (user_id, username, avatar, created_at, updated_at)
+		VALUES ($1, $2, $3, NOW(), NOW())
+		ON CONFLICT (user_id) DO UPDATE SET
+			username = EXCLUDED.username,
+			avatar = EXCLUDED.avatar,
+			updated_at = NOW()
+	`, m.Author.ID, m.Author.Username, m.Author.AvatarURL(""))
+	if err != nil {
+		log.Printf("Error upserting user: %v", err)
+		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
+		return
+	}
+
 	events, err := FetchF1Events()
 	if err != nil {
 		log.Printf("Error fetching F1 events: %v", err)

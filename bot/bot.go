@@ -173,11 +173,30 @@ func (b *Bot) guildCreate(s *discordgo.Session, event *discordgo.GuildCreate) {
 		return
 	}
 	
-	// Insert the guild owner into the users table if not exists
-	_, err = b.Db.Exec("INSERT INTO users (guild_id, user_id) VALUES ($1, $2) ON CONFLICT (guild_id, user_id) DO NOTHING", 
+	// Insert or update the guild owner in the global users table
+	owner, err := s.User(event.Guild.OwnerID)
+	if err != nil {
+		log.Printf("Failed to get guild owner's info: %v", err)
+		// Attempt to insert with just the ID if fetching fails
+		_, err = b.Db.Exec(`INSERT INTO users (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`, event.Guild.OwnerID)
+		if err != nil {
+			log.Printf("Failed to insert guild owner ID into users table: %v", err)
+		}
+	} else {
+		_, err = b.Db.Exec(`
+			INSERT INTO users (user_id, username, avatar) VALUES ($1, $2, $3)
+			ON CONFLICT (user_id) DO UPDATE SET username = $2, avatar = $3, updated_at = now()`,
+			owner.ID, owner.Username, owner.AvatarURL(""))
+		if err != nil {
+			log.Printf("Failed to insert/update guild owner in users table: %v", err)
+		}
+	}
+
+	// Add the owner to the guild_members table for this specific guild
+	_, err = b.Db.Exec(`INSERT INTO guild_members (guild_id, user_id) VALUES ($1, $2) ON CONFLICT (guild_id, user_id) DO NOTHING`,
 		event.Guild.ID, event.Guild.OwnerID)
 	if err != nil {
-		log.Printf("Failed to insert guild owner into users table: %v", err)
+		log.Printf("Failed to insert guild owner into guild_members table: %v", err)
 		return
 	}
 	

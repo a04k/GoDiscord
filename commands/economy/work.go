@@ -20,10 +20,9 @@ func init() {
 // getUserDailyInfo retrieves user's last daily timestamp and base daily hours
 func getUserDailyInfo(b *bot.Bot, guildID, userID string) (lastDaily sql.NullTime, baseDailyHours int, err error) {
 	err = b.Db.QueryRow(`
-		SELECT gm.last_daily, COALESCE(g.base_daily_hours, 24)
-		FROM guild_members gm
-		JOIN guilds g ON gm.guild_id = g.guild_id
-		WHERE gm.guild_id = $1 AND gm.user_id = $2
+		SELECT last_daily, base_daily_hours
+		FROM guild_members
+		WHERE guild_id = $1 AND user_id = $2
 	`, guildID, userID).Scan(&lastDaily, &baseDailyHours)
 	return
 }

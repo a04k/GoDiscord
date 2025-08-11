@@ -107,8 +107,13 @@ func RemoveRole(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, ar
 	// Remove the role from the target user
 	err = s.GuildMemberRoleRemove(m.GuildID, userID, targetRole.ID)
 	if err != nil {
-		log.Printf("Error removing role: %v", err)
-		s.ChannelMessageSend(m.ChannelID, "An error occurred while removing the role from the user.")
+		// Check if the error is due to role hierarchy
+		if strings.Contains(err.Error(), "Missing Permissions") || strings.Contains(err.Error(), "role hierarchy") {
+			s.ChannelMessageSend(m.ChannelID, "I cannot remove this role because it is higher than my highest role or due to missing permissions.")
+		} else {
+			log.Printf("Error removing role: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred while removing the role from the user.")
+		}
 		return
 	}
 

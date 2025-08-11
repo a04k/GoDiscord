@@ -6,5 +6,5 @@ var CommandCategories = map[string][]string{
 	"F1":           {"f1", "f1results", "f1standings", "f1wdc", "f1wcc", "qualiresults", "nextf1session", "f1sub"},
 	"Moderation":   {"kick", "mute", "unmute", "voicemute", "vunmute", "ban", "unban"},
 	"Admin":        {"setadmin", "add", "take", "disable", "enable"},
-	"Roles":        {"createrole", "setrole", "inrole", "roleinfo"},
+	"Roles":        {"createrole", "setrole", "removerole", "inrole", "roleinfo"},
 }

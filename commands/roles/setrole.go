@@ -107,8 +107,13 @@ func SetRole(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args 
 	// Add the role to the target user
 	err = s.GuildMemberRoleAdd(m.GuildID, userID, targetRole.ID)
 	if err != nil {
-		log.Printf("Error adding role: %v", err)
-		s.ChannelMessageSend(m.ChannelID, "An error occurred while adding the role to the user.")
+		// Check if the error is due to role hierarchy
+		if strings.Contains(err.Error(), "Missing Permissions") || strings.Contains(err.Error(), "role hierarchy") {
+			s.ChannelMessageSend(m.ChannelID, "I cannot add this role because it is higher than my highest role or due to missing permissions.")
+		} else {
+			log.Printf("Error adding role: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "An error occurred while adding the role to the user.")
+		}
 		return
 	}
 

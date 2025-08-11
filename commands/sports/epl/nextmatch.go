@@ -61,7 +61,9 @@ func showUpcomingFixtures(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 			s.ChannelMessageSend(m.ChannelID, "Error parsing match time. Please try again later.")
 			return
 		}
-		timeStr := matchTime.Format("Mon, Jan 2, 2006, 15:04 UTC")
+		// Convert to Unix timestamp for Discord's timestamp formatting
+		unixTimestamp := matchTime.Unix()
+		timeStr := fmt.Sprintf("<t:%d:F>", unixTimestamp) // F = "Friday, 1 January 2021 12:00"
 
 		homeTeam := shortNameMap[match.TeamH]
 		awayTeam := shortNameMap[match.TeamA]
@@ -131,7 +133,9 @@ func showClubNextMatch(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCre
 		s.ChannelMessageSend(m.ChannelID, "Error parsing match time. Please try again later.")
 		return
 	}
-	timeStr := matchTime.Format("Mon, Jan 2, 2006, 15:04 UTC")
+	// Convert to Unix timestamp for Discord's timestamp formatting
+	unixTimestamp := matchTime.Unix()
+	timeStr := fmt.Sprintf("<t:%d:F>", unixTimestamp) // F = "Friday, 1 January 2021 12:00"
 
 	venue := "Away"
 	if isHomeTeam {

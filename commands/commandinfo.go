@@ -263,4 +263,11 @@ var CommandDetails = map[string]CommandInfo{
 		Usage:       ".roleinfo <role>",
 		Category:    "Roles",
 	},
+	"removerole": {
+		Name:        "removerole",
+		Aliases:     []string{"rr"},
+		Description: "Removes a role from a user",
+		Usage:       ".removerole <user> <role>",
+		Category:    "Roles",
+	},
 }

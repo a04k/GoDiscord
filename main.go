@@ -51,19 +51,8 @@ func main() {
 			}
 		}
 
-		// When a message is sent in a guild, ensure the user exists in the database
-		if m.GuildID != "" {
-			// Ensure the user exists in the database
-			_, err = bot.Db.Exec(`
-				INSERT INTO users (guild_id, user_id)
-				VALUES ($1, $2)
-				ON CONFLICT (guild_id, user_id)
-				DO NOTHING`,
-				m.GuildID, m.Author.ID)
-			if err != nil {
-				log.Printf("Error ensuring user %s exists in guild %s: %v", m.Author.ID, m.GuildID, err)
-			}
-		}
+		// When a message is sent in a guild, we no longer need to ensure the user exists in the database
+		// Permissions are now checked directly with Discord
 
 		if !strings.HasPrefix(m.Content, ".") {
 			return

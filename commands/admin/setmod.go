@@ -33,7 +33,7 @@ func SetMod(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args [
 
 	recipient := strings.TrimPrefix(strings.TrimSuffix(args[1], ">"), "<@")
 
-	// Promote the user to mod
+	// Add the user as a moderator in our database
 	_, err = b.Db.Exec("INSERT INTO permissions (guild_id, user_id, role) VALUES ($1, $2, 'moderator') ON CONFLICT (guild_id, user_id) DO UPDATE SET role = 'moderator'", m.GuildID, recipient)
 	if err != nil {
 		log.Printf("Error promoting user: %v", err)
@@ -41,5 +41,5 @@ func SetMod(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args [
 		return
 	}
 
-	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Promoted <@%s> to mod.", recipient))
+	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Promoted <@%s> to custom moderator. Note: Users with Manage Messages permission are also automatically considered moderators.", recipient))
 }

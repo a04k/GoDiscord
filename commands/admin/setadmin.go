@@ -33,13 +33,7 @@ func SetAdmin(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args
 
 	recipient := strings.TrimPrefix(strings.TrimSuffix(args[1], ">"), "<@")
 
-	// Promote the user to admin
-	_, err = b.Db.Exec("INSERT INTO permissions (guild_id, user_id, role) VALUES ($1, $2, 'admin') ON CONFLICT (guild_id, user_id) DO UPDATE SET role = 'admin'", m.GuildID, recipient)
-	if err != nil {
-		log.Printf("Error promoting user: %v", err)
-		s.ChannelMessageSend(m.ChannelID, "An error occurred. Please try again.")
-		return
-	}
-
-	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Promoted <@%s> to admin.", recipient))
+	// With the new permission system, users with Administrator permission are automatically admins
+	// This command now serves as a way to explain this to the user
+	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("In the updated system, users with Administrator permission are automatically considered admins. You can grant <@%s> the Administrator permission in Discord role settings.\n\nAlternatively, you can use custom roles for moderators with the `.sm` command.", recipient))
 }

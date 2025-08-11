@@ -16,7 +16,6 @@ economy features.
 - **Flip**: `.flip <amount|all>` — Gamble coins (specified amount or all)
 - **Admin/Owner Commands**:
   - **Add coins**: `.add <@user> <amount>` — Add coins to a user 
-  - **Promote to Admin**: `.sa/setadmin <@user>` — Promote a user to Admin
   - **Create role**: `.cr/createrole <role name> [color] [permissions] [hoist]` — Create a new role with color, permissions, and hoisting options
   - **Assign role**: `.sr/setrole <@user> <role name>` or `.sr <@user> <role name>` — Assign a specific role to a user
   - **View users in role**: `.inrole <role name or mention>` — View all users in a specific role
@@ -63,8 +62,7 @@ If you're only here for the WE Api, run the `test.go` folder in the `QCheckWE` d
 CREATE TABLE IF NOT EXISTS users (
     user_id TEXT PRIMARY KEY,
     balance INTEGER DEFAULT 0,
-    last_daily TIMESTAMP,
-    is_admin BOOLEAN DEFAULT FALSE
+    last_daily TIMESTAMP
 );
 ```
 
@@ -88,14 +86,23 @@ go run main.go
 | `/setup <landline> <password>`       | Save WE credentials                |
 | `/quota`                             | Check internet quota               |
 
-## Mod/Admin Commands
+## Admin/Mod Commands
 | Command                              | Description                                |
 |--------------------------------------|--------------------------------------------|
 | `.add <@user> <amount>`              | Add coins to a user                        |
-| `.sa <@user>`                        | Promote a user to admin                    |
 | `.createrole/cr <role name> [...]`      | Create role with options                   |
 | `.setrole/sr <@user> <role name>`    | Assign role to user                        |
 | `.roleinfo/ri <role>`                | Show detailed role info and permissions    |
 | `.inrole <role name or mention>`     | List users in a role                       |
 
 ---
+
+## Permissions System
+
+GOBOT uses a hybrid permissions system:
+- **Bot Owner**: The server owner (from Discord) has full access to all commands
+- **Admins**: Users with the "Administrator" permission can use admin commands
+- **Moderators**: Users with the "Manage Messages" permission can use moderation commands
+- **Custom Moderators**: Users can be assigned as custom moderators using the `.sm` command
+
+The system automatically recognizes users with the appropriate Discord permissions, but also allows for custom moderator assignments through the database for more granular control.

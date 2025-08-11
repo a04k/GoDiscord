@@ -41,56 +41,131 @@ func NewBot(token string, dbURL string) (*Bot, error) {
 	return bot, nil
 }
 
-func (b *Bot) GetUserRole(guildID, userID string) (string, error) {
-	var role string
-	err := b.Db.QueryRow("SELECT role FROM permissions WHERE guild_id = $1 AND user_id = $2", guildID, userID).Scan(&role)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return "", nil // No specific role, but not an error
-		}
-		return "", err
-	}
-	return role, nil
-}
-
 func (b *Bot) IsOwner(guildID, userID string) (bool, error) {
-	role, err := b.GetUserRole(guildID, userID)
+	// Get the guild to check the actual owner ID
+	guild, err := b.Client.State.Guild(guildID)
 	if err != nil {
-		return false, err
+		// If not in state, fetch from Discord
+		guild, err = b.Client.Guild(guildID)
+		if err != nil {
+			return false, err
+		}
 	}
-	return role == "owner", nil
+	
+	return guild.OwnerID == userID, nil
 }
 
 func (b *Bot) IsAdmin(guildID, userID string) (bool, error) {
-	role, err := b.GetUserRole(guildID, userID)
-	if err != nil {
-		return false, err
+	// Check if user is the guild owner (highest permission)
+	isOwner, err := b.IsOwner(guildID, userID)
+	if err != nil || isOwner {
+		return isOwner, err
 	}
-	return role == "admin" || role == "owner", nil
+	
+	// Check if user has Administrator permission
+	member, err := b.Client.State.Member(guildID, userID)
+	if err != nil {
+		// If not in state, fetch from Discord
+		member, err = b.Client.GuildMember(guildID, userID)
+		if err != nil {
+			return false, err
+		}
+	}
+	
+	// Get user's permissions in the guild
+	perms, err := b.Client.State.UserChannelPermissions(userID, guildID)
+	if err != nil {
+		// Calculate permissions manually if not in state
+		perms = b.calculatePermissions(guildID, member)
+	}
+	
+	// Check if user has Administrator permission (0x8 is the permission bit for Administrator)
+	return perms&0x8 != 0, nil
 }
 
 func (b *Bot) IsMod(guildID, userID string) (bool, error) {
-	role, err := b.GetUserRole(guildID, userID)
+	// Check if user is owner or admin first
+	isAdmin, err := b.IsAdmin(guildID, userID)
+	if err != nil || isAdmin {
+		return isAdmin, err
+	}
+	
+	// Check if user has Manage Messages permission (0x2000 is the permission bit for Manage Messages)
+	member, err := b.Client.State.Member(guildID, userID)
+	if err != nil {
+		// If not in state, fetch from Discord
+		member, err = b.Client.GuildMember(guildID, userID)
+		if err != nil {
+			return false, err
+		}
+	}
+	
+	// Get user's permissions in the guild
+	perms, err := b.Client.State.UserChannelPermissions(userID, guildID)
+	if err != nil {
+		// Calculate permissions manually if not in state
+		perms = b.calculatePermissions(guildID, member)
+	}
+	
+	// Check if user has Manage Messages permission
+	hasManageMessages := perms&0x2000 != 0
+	if hasManageMessages {
+		return true, nil
+	}
+	
+	// Check if user is marked as a moderator in our database
+	var count int
+	err = b.Db.QueryRow("SELECT COUNT(*) FROM permissions WHERE guild_id = $1 AND user_id = $2 AND role = 'moderator'", guildID, userID).Scan(&count)
 	if err != nil {
 		return false, err
 	}
-	return role == "moderator" || role == "admin" || role == "owner", nil
+	
+	return count > 0, nil
+}
+
+// calculatePermissions manually calculates a member's permissions in a guild
+// This is a simplified version and might not cover all edge cases
+func (b *Bot) calculatePermissions(guildID string, member *discordgo.Member) int64 {
+	// Get the guild
+	guild, err := b.Client.State.Guild(guildID)
+	if err != nil {
+		// If not in state, fetch from Discord
+		guild, err = b.Client.Guild(guildID)
+		if err != nil {
+			return 0
+		}
+	}
+	
+	var permissions int64
+	
+	// Start with @everyone role permissions
+	for _, role := range guild.Roles {
+		if role.ID == guild.ID { // @everyone role has the same ID as the guild
+			permissions |= role.Permissions
+			break
+		}
+	}
+	
+	// Add permissions from member's roles
+	for _, roleID := range member.Roles {
+		for _, role := range guild.Roles {
+			if role.ID == roleID {
+				permissions |= role.Permissions
+				break
+			}
+		}
+	}
+	
+	// If the user is the owner, they have all permissions
+	if guild.OwnerID == member.User.ID {
+		permissions = discordgo.PermissionAll
+	}
+	
+	return permissions
 }
 
 func (b *Bot) guildCreate(s *discordgo.Session, event *discordgo.GuildCreate) {
-	// Check if the owner already has a role
-	var exists bool
-	err := b.Db.QueryRow("SELECT EXISTS(SELECT 1 FROM permissions WHERE guild_id = $1 AND user_id = $2)", event.Guild.ID, event.Guild.OwnerID).Scan(&exists)
-	if err != nil {
-		log.Printf("Failed to check if guild owner exists: %v", err)
-		return
-	}
-
-	if !exists {
-		// Set the guild owner as the owner in the permissions table
-		_, err := b.Db.Exec("INSERT INTO permissions (guild_id, user_id, role) VALUES ($1, $2, $3)", event.Guild.ID, event.Guild.OwnerID, "owner")
-		if err != nil {
-			log.Printf("Failed to set guild owner: %v", err)
-		}
-	}
+	// No need to set permissions in database anymore
+	// Permissions are now checked directly with Discord
+	log.Printf("Bot joined guild %s (ID: %s)", event.Guild.Name, event.Guild.ID)
 }

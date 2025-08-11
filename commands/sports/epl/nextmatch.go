@@ -7,9 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
 	"DiscordBot/commands"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 func init() {
@@ -17,74 +18,55 @@ func init() {
 }
 
 func NextMatch(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	// If no arguments, show all upcoming fixtures for current gameweek
 	if len(args) <= 1 {
 		showUpcomingFixtures(b, s, m)
 		return
 	}
 
-	// If club name is provided, show next match for that club
 	clubName := strings.Join(args[1:], " ")
 	showClubNextMatch(b, s, m, clubName)
 }
 
 func showUpcomingFixtures(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate) {
-	// Fetch upcoming fixtures from API
-	url := "https://api.football-data.org/v4/competitions/PL/matches?status=SCHEDULED"
-	
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, "Error creating request for EPL fixtures. Please try again later.")
-		return
-	}
-	
-	resp, err := http.DefaultClient.Do(req)
+	fixtures, err := fetchFixtures()
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, "Error fetching EPL fixtures. Please try again later.")
 		return
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		s.ChannelMessageSend(m.ChannelID, "Error fetching EPL fixtures. Please try again later.")
+	teamsData, err := getTeamsData()
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "Error fetching team data. Please try again later.")
 		return
 	}
 
-	var data EPLMatches
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		s.ChannelMessageSend(m.ChannelID, "Error parsing EPL fixtures data. Please try again later.")
-		return
+	shortNameMap := make(map[int]string)
+	for _, t := range teamsData {
+		shortNameMap[t.ID] = t.ShortName
 	}
 
-	// Create embed
 	embed := &discordgo.MessageEmbed{
 		Title: "Upcoming Premier League Fixtures",
 		Color: 0x3b82f6,
 	}
 
-	// Show only the next 10 fixtures
 	count := 0
-	for _, match := range data.Matches {
+	for _, match := range fixtures {
 		if count >= 10 {
 			break
 		}
-		
-		// Convert UTC time to user's local time
-		matchTime, err := time.Parse(time.RFC3339, match.UTCDate)
-		if err != nil {
-			// If parsing fails, use the original string
-			matchTime = time.Now()
-		}
-		
-		// Format time in a user-friendly way
+
+		matchTime := time.Unix(int64(match.KickoffTimeUnix), 0)
 		timeStr := matchTime.Format("Mon, Jan 2, 15:04 MST")
-		
+
+		homeTeam := shortNameMap[match.TeamH]
+		awayTeam := shortNameMap[match.TeamA]
+
 		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
-			Name: fmt.Sprintf("%s vs %s", match.HomeTeam.Name, match.AwayTeam.Name),
-			Value: fmt.Sprintf("Date: %s\nVenue: %s", timeStr, match.Venue),
-			Inline: false,
+			Name:  fmt.Sprintf("GW%d: %s vs %s", match.Event, homeTeam, awayTeam),
+			Value: fmt.Sprintf("Date: %s", timeStr),
 		})
-		
+
 		count++
 	}
 
@@ -96,63 +78,60 @@ func showUpcomingFixtures(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 }
 
 func showClubNextMatch(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, clubName string) {
-	// Fetch upcoming fixtures from API
-	url := "https://api.football-data.org/v4/competitions/PL/matches?status=SCHEDULED"
-	
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, "Error creating request for EPL fixtures. Please try again later.")
-		return
-	}
-	
-	resp, err := http.DefaultClient.Do(req)
+	fixtures, err := fetchFixtures()
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, "Error fetching EPL fixtures. Please try again later.")
 		return
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		s.ChannelMessageSend(m.ChannelID, "Error fetching EPL fixtures. Please try again later.")
+	teamsData, err := getTeamsData()
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "Error fetching team data. Please try again later.")
 		return
 	}
 
-	var data EPLMatches
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		s.ChannelMessageSend(m.ChannelID, "Error parsing EPL fixtures data. Please try again later.")
-		return
+	teamMap := make(map[int]string)
+	shortNameMap := make(map[int]string)
+	for _, t := range teamsData {
+		teamMap[t.ID] = t.Name
+		shortNameMap[t.ID] = t.ShortName
 	}
 
-	// Find the next match for the specified club
-	var nextMatch *EPLMatch
-	for _, match := range data.Matches {
-		// Check if the club is playing in this match
-		if strings.Contains(strings.ToLower(match.HomeTeam.Name), strings.ToLower(clubName)) ||
-		   strings.Contains(strings.ToLower(match.AwayTeam.Name), strings.ToLower(clubName)) {
+	var nextMatch *FPLFixture
+	var isHomeTeam bool
+	for _, match := range fixtures {
+		homeTeam := teamMap[match.TeamH]
+		awayTeam := teamMap[match.TeamA]
+		homeShort := shortNameMap[match.TeamH]
+		awayShort := shortNameMap[match.TeamA]
+
+		if strings.Contains(strings.ToLower(homeTeam), strings.ToLower(clubName)) ||
+			strings.Contains(strings.ToLower(awayTeam), strings.ToLower(clubName)) ||
+			strings.Contains(strings.ToLower(homeShort), strings.ToLower(clubName)) ||
+			strings.Contains(strings.ToLower(awayShort), strings.ToLower(clubName)) {
+
 			nextMatch = &match
+			isHomeTeam = strings.Contains(strings.ToLower(homeTeam), strings.ToLower(clubName)) ||
+				strings.Contains(strings.ToLower(homeShort), strings.ToLower(clubName))
 			break
 		}
 	}
 
-	// If no match found for the club
 	if nextMatch == nil {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("No upcoming match found for club: %s", clubName))
 		return
 	}
 
-	// Convert UTC time to user's local time
-	matchTime, err := time.Parse(time.RFC3339, nextMatch.UTCDate)
-	if err != nil {
-		// If parsing fails, use the original string
-		matchTime = time.Now()
-	}
-	
-	// Format time in a user-friendly way
+	matchTime := time.Unix(int64(nextMatch.KickoffTimeUnix), 0)
 	timeStr := matchTime.Format("Mon, Jan 2, 15:04 MST")
 
-	// Create embed
+	venue := "Away"
+	if isHomeTeam {
+		venue = "Home"
+	}
+
 	embed := &discordgo.MessageEmbed{
-		Title: fmt.Sprintf("%s vs %s", nextMatch.HomeTeam.Name, nextMatch.AwayTeam.Name),
+		Title: fmt.Sprintf("GW%d: %s vs %s", nextMatch.Event, shortNameMap[nextMatch.TeamH], shortNameMap[nextMatch.TeamA]),
 		Color: 0x3b82f6,
 		Fields: []*discordgo.MessageEmbedField{
 			{
@@ -162,7 +141,7 @@ func showClubNextMatch(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCre
 			},
 			{
 				Name:   "Venue",
-				Value:  nextMatch.Venue,
+				Value:  venue,
 				Inline: true,
 			},
 		},
@@ -171,22 +150,61 @@ func showClubNextMatch(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCre
 	s.ChannelMessageSendEmbed(m.ChannelID, embed)
 }
 
-// EPL Matches Data Structure
-type EPLMatches struct {
-	Matches []EPLMatch `json:"matches"`
+func fetchFixtures() ([]FPLFixture, error) {
+	url := "https://fantasy.premierleague.com/api/fixtures/?future=1"
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP error: %d", resp.StatusCode)
+	}
+
+	var data []FPLFixture
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
 
-type EPLMatch struct {
+func getTeamsData() ([]FPLTeam, error) {
+	url := "https://fantasy.premierleague.com/api/bootstrap-static/"
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP error: %d", resp.StatusCode)
+	}
+
+	var data FPLBootstrapStatic
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+
+	return data.Teams, nil
+}
+
+type FPLFixture struct {
+	ID              int  `json:"id"`
+	TeamH           int  `json:"team_h"`
+	TeamA           int  `json:"team_a"`
+	KickoffTimeUnix int  `json:"kickoff_time_unix"`
+	Event           int  `json:"event"`
+	Finished        bool `json:"finished"`
+}
+
+type FPLTeam struct {
 	ID        int    `json:"id"`
-	UTCDate   string `json:"utcDate"`
-	Status    string `json:"status"`
-	Venue     string `json:"venue"`
-	HomeTeam  struct {
-		ID   int    `json:"id"`
-		Name string `json:"name"`
-	} `json:"homeTeam"`
-	AwayTeam struct {
-		ID   int    `json:"id"`
-		Name string `json:"name"`
-	} `json:"awayTeam"`
+	Name      string `json:"name"`
+	ShortName string `json:"short_name"`
+}
+
+type FPLBootstrapStatic struct {
+	Teams []FPLTeam `json:"teams"`
 }

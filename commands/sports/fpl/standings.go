@@ -50,17 +50,24 @@ func FPLStandings(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, 
 		return
 	}
 
-	// Sort standings by rank
-	sort.Slice(data.Standings.Results, func(i, j int) bool {
-		return data.Standings.Results[i].Rank < data.Standings.Results[j].Rank
-	})
-
 	// Create embed
 	embed := &discordgo.MessageEmbed{
 		Title:       fmt.Sprintf("FPL League Standings - %s", data.League.Name),
 		Description: fmt.Sprintf("Total Players: %d", data.Standings.TotalPlayers),
 		Color:       0x3b82f6,
 	}
+
+	// Check if there are any results
+	if len(data.Standings.Results) == 0 {
+		embed.Description = fmt.Sprintf("Total Players: %d\n\nNo standings available yet. The league may not have started or there might be no players.", data.Standings.TotalPlayers)
+		s.ChannelMessageSendEmbed(m.ChannelID, embed)
+		return
+	}
+
+	// Sort standings by rank
+	sort.Slice(data.Standings.Results, func(i, j int) bool {
+		return data.Standings.Results[i].Rank < data.Standings.Results[j].Rank
+	})
 
 	// Add top 15 players
 	count := 0
@@ -69,9 +76,21 @@ func FPLStandings(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, 
 			break
 		}
 		
+		// Format the entry name to fit better
+		entryName := player.EntryName
+		if len(entryName) > 20 {
+			entryName = entryName[:17] + "..."
+		}
+		
+		// Format the player name to fit better
+		playerName := player.PlayerName
+		if len(playerName) > 15 {
+			playerName = playerName[:12] + "..."
+		}
+		
 		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
-			Name:  fmt.Sprintf("#%d %s", player.Rank, player.EntryName),
-			Value: fmt.Sprintf("Player: %s\nPoints: %d", player.PlayerName, player.Total),
+			Name:  fmt.Sprintf("#%d %s", player.Rank, entryName),
+			Value: fmt.Sprintf("Player: %s\nPoints: %d", playerName, player.Total),
 			Inline: false,
 		})
 		

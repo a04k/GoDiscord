@@ -4,4 +4,4 @@
 - [x] Bot ownership hierarchy overhaul (using Discord's native permissions with custom moderator support)
 - [ ] Beautifying every response
 - [ ] Renaming categories of commands into modules (sports module sounds better than category etc..)
-- [ ] Fantasy premier league integration, league standings command etc
+- [WIP] Fantasy premier league integration, league standings command etc

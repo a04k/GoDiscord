@@ -9,9 +9,17 @@ import (
 	"DiscordBot/bot"
 	"DiscordBot/commands"
 	"DiscordBot/commands/slash"
-	"DiscordBot/commands/sports/f1"
-	"DiscordBot/utils"
 
+	"DiscordBot/utils"
+	
+	_ "DiscordBot/commands/admin"
+	_ "DiscordBot/commands/economy"
+	_ "DiscordBot/commands/moderation"
+	_ "DiscordBot/commands/roles"
+	
+	_ "DiscordBot/commands/sports/f1"
+	_ "DiscordBot/commands/sports/epl"
+	_ "DiscordBot/commands/sports/fpl"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"

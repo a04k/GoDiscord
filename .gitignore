@@ -4,3 +4,5 @@
 *.sum
 /gobot
 *.pem
+/internal 
+*.amogus

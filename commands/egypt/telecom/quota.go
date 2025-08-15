@@ -1,12 +1,13 @@
-package slash
+package telecom
 
 import (
 	"database/sql"
 	"fmt"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
 	"QCheckWE"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 func WEQuota(b *bot.Bot, s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -64,14 +65,14 @@ func WEQuota(b *bot.Bot, s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Remaining: %.2f / %.2f (%s%% Used)
 			Renewed: %s
 			Expires: %s (%s)`,
-			quota["name"],
-			quota["offerName"],
-			quota["remaining"],
-			quota["total"],
-			quota["usagePercentage"],
-			quota["renewalDate"],
-			quota["expiryDate"],
-			quota["expiryIn"])
+		quota["name"],
+		quota["offerName"],
+		quota["remaining"],
+		quota["total"],
+		quota["usagePercentage"],
+		quota["renewalDate"],
+		quota["expiryDate"],
+		quota["expiryIn"])
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,

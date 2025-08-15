@@ -1,18 +1,16 @@
-package admin
+package economyadmin
 
 import (
 	"fmt"
 	"log"
 
 	"DiscordBot/bot"
-	"DiscordBot/commands"
 	"DiscordBot/utils"
+
 	"github.com/bwmarrin/discordgo"
 )
 
-func init() {
-	commands.RegisterCommand("add", Add)
-}
+// Add function is registered via the module.go file
 
 func Add(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	if len(args) < 3 {

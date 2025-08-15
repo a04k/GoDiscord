@@ -1,17 +1,16 @@
-package commands
+package finance
 
 import (
 	"encoding/json"
 	"fmt"
 	"net/http"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
+
+	"github.com/bwmarrin/discordgo"
 )
 
-func init() {
-	RegisterCommand("btc", BTC)
-}
+// BTC function is registered via the module.go file
 
 func BTC(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	resp, err := http.Get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd")

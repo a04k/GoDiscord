@@ -1,4 +1,4 @@
-package commands
+package help
 
 import (
 	"database/sql"
@@ -6,12 +6,14 @@ import (
 	"log"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
+	"DiscordBot/commands"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 func init() {
-	RegisterCommand("help", Help, "h")
+	commands.RegisterCommand("help", Help, "h")
 }
 
 func Help(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
@@ -22,19 +24,19 @@ func Help(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 
 	if len(args) > 1 {
 		commandName := strings.ToLower(args[1])
-		
+
 		// Resolve alias to actual command name
-		if actualName, isAlias := CommandAliases[commandName]; isAlias {
+		if actualName, isAlias := commands.CommandAliases[commandName]; isAlias {
 			commandName = actualName
 		}
-		
+
 		// Check if the command exists
-		commandInfo, exists := CommandDetails[commandName]
+		commandInfo, exists := commands.CommandDetails[commandName]
 		if !exists {
 			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Command `%s` not found.", commandName))
 			return
 		}
-		
+
 		// Check if the command is disabled
 		var count int
 		err := b.Db.QueryRow("SELECT COUNT(*) FROM disabled_commands WHERE guild_id = $1 AND name = $2 AND type = 'command'",
@@ -56,7 +58,7 @@ func Help(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Command `%s` is in category `%s` which is disabled.", commandName, category))
 			return
 		}
-		
+
 		// Build help embed for the specific command
 		embed := &discordgo.MessageEmbed{
 			Title:       fmt.Sprintf("Help: %s", commandInfo.Name),
@@ -69,7 +71,7 @@ func Help(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 				},
 			},
 		}
-		
+
 		// Add aliases if they exist
 		if len(commandInfo.Aliases) > 0 {
 			aliases := strings.Join(commandInfo.Aliases, ", ")
@@ -78,13 +80,13 @@ func Help(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 				Value: aliases,
 			})
 		}
-		
+
 		// Add category
 		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
 			Name:  "Category",
 			Value: commandInfo.Category,
 		})
-		
+
 		s.ChannelMessageSendEmbed(m.ChannelID, embed)
 		return
 	}
@@ -96,8 +98,15 @@ func Help(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []s
 		Color:       0x00ff00,
 	}
 
-	// Add a field for each category
-	for category := range CommandCategories {
+	// Add a field for each category using the module system
+	categories := make(map[string]bool)
+	for _, module := range commands.RegisteredModules {
+		if module.Category != "" {
+			categories[module.Category] = true
+		}
+	}
+
+	for category := range categories {
 		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
 			Name:   category,
 			Value:  fmt.Sprintf("`.help %s` for commands in this category", strings.ToLower(category)),

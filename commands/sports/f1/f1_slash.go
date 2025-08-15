@@ -1,4 +1,4 @@
-package slash
+package f1
 
 import (
 	"log"

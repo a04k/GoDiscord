@@ -8,17 +8,23 @@ import (
 
 	"DiscordBot/bot"
 	"DiscordBot/commands"
-	"DiscordBot/commands/slash"
 
 	"DiscordBot/utils"
-	
+
+	// Import modules to register them
 	_ "DiscordBot/commands/admin"
 	_ "DiscordBot/commands/economy"
+	_ "DiscordBot/commands/economy/admin"
+	_ "DiscordBot/commands/egypt/currency"
+	_ "DiscordBot/commands/egypt/telecom"
+	_ "DiscordBot/commands/finance"
+	_ "DiscordBot/commands/general"
+	"DiscordBot/commands/help"
 	_ "DiscordBot/commands/moderation"
 	_ "DiscordBot/commands/roles"
-	
-	"DiscordBot/commands/sports/f1"
+
 	_ "DiscordBot/commands/sports/epl"
+	"DiscordBot/commands/sports/f1"
 	_ "DiscordBot/commands/sports/fpl"
 
 	"github.com/bwmarrin/discordgo"
@@ -85,19 +91,14 @@ func main() {
 				return // Command is disabled
 			}
 
-			// Check if the command's category is disabled
-			for category, cmds := range commands.CommandCategories {
-				for _, c := range cmds {
-					if c == cmdName {
-						err := bot.Db.QueryRow("SELECT COUNT(*) FROM disabled_commands WHERE guild_id = $1 AND name = $2 AND type = 'category'",
-							m.GuildID, strings.ToLower(category)).Scan(&count)
-						if err != nil && err != sql.ErrNoRows {
-							log.Printf("Error checking if category %s is disabled in guild %s: %v", category, m.GuildID, err)
-						} else if count > 0 {
-							return // Category is disabled
-						}
-						break
-					}
+			// Check if the command's category is disabled using module system
+			if module := commands.GetModuleByCommand(cmdName); module != nil {
+				err := bot.Db.QueryRow("SELECT COUNT(*) FROM disabled_commands WHERE guild_id = $1 AND name = $2 AND type = 'category'",
+					m.GuildID, strings.ToLower(module.Category)).Scan(&count)
+				if err != nil && err != sql.ErrNoRows {
+					log.Printf("Error checking if category %s is disabled in guild %s: %v", module.Category, m.GuildID, err)
+				} else if count > 0 {
+					return // Category is disabled
 				}
 			}
 		}
@@ -109,7 +110,7 @@ func main() {
 
 	// Add reaction handler for pagination
 	bot.Client.AddHandler(func(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
-		commands.HandlePagination(s, r)
+		help.HandlePagination(s, r)
 	})
 
 	bot.Client.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -117,13 +118,10 @@ func main() {
 			return
 		}
 
-		switch i.ApplicationCommandData().Name {
-		case "wequota":
-			slash.WEQuota(bot, s, i)
-		case "wesetup":
-			slash.WEAccountSetup(bot, s, i)
-		case "f1":
-			slash.F1SubscriptionToggle(bot, s, i)
+		// Use modular slash command system
+		commandName := i.ApplicationCommandData().Name
+		if handler, exists := commands.SlashCommandHandlers[commandName]; exists {
+			handler(bot, s, i)
 		}
 	})
 
@@ -132,8 +130,8 @@ func main() {
 		log.Fatalf("error opening connection to Discord: %v", err)
 	}
 
-	// Register slash commands
-	slash.RegisterCommands(bot.Client, "")
+	// Register slash commands using modular system
+	commands.RegisterAllSlashCommands(bot.Client, "")
 
 	// Start F1 Notifier
 	f1Notifier := f1.NewF1Notifier(bot.Client, bot.Db)

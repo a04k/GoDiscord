@@ -8,6 +8,7 @@ import (
 	"DiscordBot/bot"
 	"DiscordBot/commands"
 	"DiscordBot/utils"
+
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -45,7 +46,7 @@ func DisableCommand(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate
 
 	if disableType == "category" {
 		// Check if it's a valid category
-		if _, ok := commands.CommandCategories[strings.Title(name)]; !ok {
+		if _, ok := commands.RegisteredCategories[strings.Title(name)]; !ok {
 			s.ChannelMessageSend(m.ChannelID, "Invalid category.")
 			return
 		}

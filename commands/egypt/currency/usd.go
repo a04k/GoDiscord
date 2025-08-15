@@ -1,4 +1,4 @@
-package commands
+package currency
 
 import (
 	"fmt"
@@ -6,14 +6,13 @@ import (
 	"strconv"
 	"strings"
 
+	"DiscordBot/bot"
+
 	"github.com/PuerkitoBio/goquery"
 	"github.com/bwmarrin/discordgo"
-	"DiscordBot/bot"
 )
 
-func init() {
-	RegisterCommand("usd", USD)
-}
+// USD function is registered via the module.go file
 
 func USD(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	// default amount = 1

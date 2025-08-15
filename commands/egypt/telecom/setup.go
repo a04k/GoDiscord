@@ -1,11 +1,12 @@
-package slash
+package telecom
 
 import (
 	"log"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
 	"QCheckWE"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 func WEAccountSetup(b *bot.Bot, s *discordgo.Session, i *discordgo.InteractionCreate) {

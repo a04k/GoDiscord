@@ -1,4 +1,4 @@
-package commands
+package help
 
 import (
 	"fmt"
@@ -6,18 +6,20 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
+	"DiscordBot/commands"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 // PaginationState holds the state of paginated messages
 type PaginationState struct {
-	UserID       string
-	MessageID    string
-	CurrentPage  int
-	TotalPages   int
-	Pages        []*discordgo.MessageEmbed
-	GuildID      string
+	UserID      string
+	MessageID   string
+	CurrentPage int
+	TotalPages  int
+	Pages       []*discordgo.MessageEmbed
+	GuildID     string
 }
 
 // PaginationManager manages pagination states
@@ -86,15 +88,25 @@ func CreateCommandListPages(b *bot.Bot, s *discordgo.Session, m *discordgo.Messa
 
 	// Create pages for each category
 	var pages []*discordgo.MessageEmbed
-	
+
 	// Page 1: Categories overview
 	categoryPage := &discordgo.MessageEmbed{
-		Title: "Command List - Categories",
+		Title:       "Command List - Categories",
 		Description: "Use the arrow reactions to navigate between pages.\nEach page shows commands in a specific category.",
-		Color: 0x00ff00,
+		Color:       0x00ff00,
 	}
-	
-	for category, cmds := range CommandCategories {
+
+	// Build categories from modules
+	categories := make(map[string][]string) // category -> command names
+	for _, module := range commands.RegisteredModules {
+		if module.Category != "" {
+			for _, cmd := range module.Commands {
+				categories[module.Category] = append(categories[module.Category], cmd.Name)
+			}
+		}
+	}
+
+	for category, cmds := range categories {
 		// Count enabled commands in this category
 		enabledCount := 0
 		for _, cmd := range cmds {
@@ -102,114 +114,114 @@ func CreateCommandListPages(b *bot.Bot, s *discordgo.Session, m *discordgo.Messa
 				enabledCount++
 			}
 		}
-		
+
 		// Check if category itself is disabled
 		isDisabled := disabledCategoriesMap[strings.ToLower(category)]
-		
+
 		status := "✅"
 		if isDisabled {
 			status = "❌"
 		}
-		
+
 		categoryPage.Fields = append(categoryPage.Fields, &discordgo.MessageEmbedField{
 			Name:  fmt.Sprintf("%s %s", status, category),
 			Value: fmt.Sprintf("%d commands (`.cl %s`)", enabledCount, strings.ToLower(category)),
 		})
 	}
-	
+
 	pages = append(pages, categoryPage)
-	
+
 	// Create a page for each category
-	for category, cmds := range CommandCategories {
+	for category, cmds := range categories {
 		// Skip disabled categories
 		if disabledCategoriesMap[strings.ToLower(category)] {
 			continue
 		}
-		
+
 		categoryPage := &discordgo.MessageEmbed{
 			Title: fmt.Sprintf("Command List - %s", category),
 			Color: 0x00ff00,
 		}
-		
+
 		// Add commands in this category
 		for _, cmdName := range cmds {
 			// Skip disabled commands
 			if disabledCommandsMap[cmdName] {
 				continue
 			}
-			
+
 			// Get command info
-			cmdInfo, exists := CommandDetails[cmdName]
+			cmdInfo, exists := commands.CommandDetails[cmdName]
 			if !exists {
 				continue
 			}
-			
+
 			description := cmdInfo.Description
 			if description == "" {
 				description = "No description available"
 			}
-			
+
 			// Add aliases if they exist
 			aliasText := ""
 			if len(cmdInfo.Aliases) > 0 {
 				aliasText = fmt.Sprintf(" (Aliases: %s)", strings.Join(cmdInfo.Aliases, ", "))
 			}
-			
+
 			categoryPage.Fields = append(categoryPage.Fields, &discordgo.MessageEmbedField{
 				Name:  fmt.Sprintf(".%s%s", cmdName, aliasText),
 				Value: description,
 			})
 		}
-		
+
 		// Only add the page if there are commands to show
 		if len(categoryPage.Fields) > 0 {
 			pages = append(pages, categoryPage)
 		}
 	}
-	
+
 	// Create a page for disabled commands if there are any
 	if len(disabledCommandsMap) > 0 || len(disabledCategoriesMap) > 0 {
 		disabledPage := &discordgo.MessageEmbed{
 			Title: "Disabled Commands & Categories",
 			Color: 0xff0000,
 		}
-		
+
 		// Add disabled commands
 		if len(disabledCommandsMap) > 0 {
 			disabledCmds := make([]string, 0, len(disabledCommandsMap))
 			for cmd := range disabledCommandsMap {
 				disabledCmds = append(disabledCmds, fmt.Sprintf("`.%s`", cmd))
 			}
-			
+
 			disabledPage.Fields = append(disabledPage.Fields, &discordgo.MessageEmbedField{
 				Name:  "Disabled Commands",
 				Value: strings.Join(disabledCmds, "\n"),
 			})
 		}
-		
+
 		// Add disabled categories
 		if len(disabledCategoriesMap) > 0 {
 			disabledCats := make([]string, 0, len(disabledCategoriesMap))
 			for cat := range disabledCategoriesMap {
 				disabledCats = append(disabledCats, fmt.Sprintf("`%s`", strings.Title(cat)))
 			}
-			
+
 			disabledPage.Fields = append(disabledPage.Fields, &discordgo.MessageEmbedField{
 				Name:  "Disabled Categories",
 				Value: strings.Join(disabledCats, "\n"),
 			})
 		}
-		
+
 		pages = append(pages, disabledPage)
 	}
-	
+
 	// Add footer to each page with page number
 	for i, page := range pages {
 		page.Footer = &discordgo.MessageEmbedFooter{
 			Text: fmt.Sprintf("Page %d of %d", i+1, len(pages)),
 		}
 	}
-	
+
 	return pages, nil
 }
 
@@ -219,23 +231,23 @@ func HandlePagination(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
 	if r.UserID == s.State.User.ID {
 		return
 	}
-	
+
 	// Only handle arrow reactions
 	if r.Emoji.Name != "⬅️" && r.Emoji.Name != "➡️" {
 		return
 	}
-	
+
 	// Get pagination state
 	state, exists := paginationManager.GetState(r.MessageID)
 	if !exists {
 		return
 	}
-	
+
 	// Only allow the user who requested the command to paginate
 	if r.UserID != state.UserID {
 		return
 	}
-	
+
 	// Update page based on reaction
 	if r.Emoji.Name == "➡️" {
 		state.CurrentPage++
@@ -248,14 +260,14 @@ func HandlePagination(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
 			state.CurrentPage = len(state.Pages) - 1
 		}
 	}
-	
+
 	// Edit the message with the new page
 	_, err := s.ChannelMessageEditEmbed(r.ChannelID, r.MessageID, state.Pages[state.CurrentPage])
 	if err != nil {
 		log.Printf("Error editing paginated message: %v", err)
 		return
 	}
-	
+
 	// Remove the user's reaction
 	err = s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
 	if err != nil {

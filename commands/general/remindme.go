@@ -1,4 +1,4 @@
-package commands
+package general
 
 import (
 	"fmt"
@@ -8,13 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
+
+	"github.com/bwmarrin/discordgo"
 )
 
-func init() {
-	RegisterCommand("remindme", RemindMe)
-}
+// RemindMe function is registered via the module.go file
 
 // parseDuration converts "1d 2h 30m" into time.Duration
 func parseDuration(input string) (time.Duration, error) {
@@ -81,26 +80,26 @@ func RemindMe(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args
 
 	// Join all args except the command name for parsing duration and message
 	input := strings.Join(args[1:], " ")
-	
+
 	// Try to parse duration from the beginning of the input
 	var duration time.Duration
 	var message string
 	var err error
-	
+
 	// Try different patterns to extract duration
 	patterns := []string{
-		`^(\d+d\s*\d+h\s*\d+m\s*\d+s)`,  // 1d 2h 30m 45s
-		`^(\d+d\s*\d+h\s*\d+m)`,         // 1d 2h 30m
-		`^(\d+d\s*\d+h)`,                // 1d 2h
-		`^(\d+d)`,                       // 1d
-		`^(\d+h\s*\d+m\s*\d+s)`,         // 2h 30m 45s
-		`^(\d+h\s*\d+m)`,                // 2h 30m
-		`^(\d+h)`,                       // 2h
-		`^(\d+m\s*\d+s)`,                // 30m 45s
-		`^(\d+m)`,                       // 30m
-		`^(\d+s)`,                       // 45s
+		`^(\d+d\s*\d+h\s*\d+m\s*\d+s)`, // 1d 2h 30m 45s
+		`^(\d+d\s*\d+h\s*\d+m)`,        // 1d 2h 30m
+		`^(\d+d\s*\d+h)`,               // 1d 2h
+		`^(\d+d)`,                      // 1d
+		`^(\d+h\s*\d+m\s*\d+s)`,        // 2h 30m 45s
+		`^(\d+h\s*\d+m)`,               // 2h 30m
+		`^(\d+h)`,                      // 2h
+		`^(\d+m\s*\d+s)`,               // 30m 45s
+		`^(\d+m)`,                      // 30m
+		`^(\d+s)`,                      // 45s
 	}
-	
+
 	durationStr := ""
 	for _, pattern := range patterns {
 		re := regexp.MustCompile(pattern)
@@ -110,7 +109,7 @@ func RemindMe(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args
 			break
 		}
 	}
-	
+
 	if durationStr == "" {
 		// If no duration found, try to parse the first argument as duration
 		duration, err = parseDuration(args[1])

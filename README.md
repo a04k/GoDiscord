@@ -253,7 +253,6 @@ Include in your PR:
 - **Commands List**: All commands with descriptions
 - **Dependencies**: Any external dependencies
 - **Configuration**: Required configuration options
-- **Testing**: How you tested the module
 
 ### PR Template
 ```markdown
@@ -289,11 +288,6 @@ Include in your PR:
 - [Module Development Guide](documentation/MODULE_DEVELOPMENT.md) - Complete guide for creating modules
 - [CLI Tool Architecture](documentation/CLI_TOOL.md) - CLI tool design and implementation
 
-### 📋 Project Management
-- [TODO & Roadmap](documentation/TODO.md) - Current tasks and future plans
-- [Permission System](documentation/PERMISSION_REFACTOR.md) - Permission system documentation
-- [Database Schema Updates](documentation/newSchema.md) - Schema migration notes
-- [EPL/FPL Integration](documentation/EPL_FPL_INTEGRATION.md) - Sports module integration guide
 
 ## 🏗️ Architecture
 
@@ -351,24 +345,16 @@ modubot-go/
 - Check Go version (1.21+ required)
 - Verify file permissions
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
 ## 🙏 Acknowledgments
 
 - [DiscordGo](https://github.com/bwmarrin/discordgo) - Discord API wrapper
 - [Cobra](https://github.com/spf13/cobra) - CLI framework
-- All contributors who help make this project better
 
 ## 📞 Support
 
 - Create an [Issue](https://github.com/yourusername/modubot-go/issues) for bug reports
-- Join our [Discord Server](https://discord.gg/your-server) for community support
-- Check the [Wiki](https://github.com/yourusername/modubot-go/wiki) for detailed guides
 
 ---
 
-**Made with ❤️ by the ModuBot-Go community**
 
-*Build your perfect Discord bot, one module at a time!* 🚀
+*Build your perfect bot, one module at a time!* 🚀

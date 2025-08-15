@@ -5,12 +5,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
-	"DiscordBot/commands"
 )
-
-func init() {
-	commands.RegisterCommand("setfplleague", SetFPLLeague)
-}
 
 func SetFPLLeague(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	// Check if user is admin

@@ -6,12 +6,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
-	"DiscordBot/commands"
 )
-
-func init() {
-	commands.RegisterCommand("f1standings", F1Standings)
-}
 
 func F1Standings(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	// Fetch real driver standings data from the Ergast API

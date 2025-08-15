@@ -52,8 +52,8 @@ func main() {
 				cmd := strings.ToLower(args[0][1:])
 				// Add commands that are allowed in DMs
 				allowedDMCommands := map[string]bool{
-					"f1": true, "f1results": true, "f1standings": true, "f1wdc": true,
-					"f1wcc": true, "qualiresults": true, "nextf1session": true, "f1sub": true,
+					"f1": true, "f1 results": true, "f1 standings": true, "f1 wdc": true,
+					"f1 wcc": true, "f1 quali": true, "f1 next": true, "f1 sub": true,
 				}
 				if !allowedDMCommands[cmd] {
 					return // Ignore commands in DMs that aren't explicitly allowed

@@ -17,17 +17,17 @@ func init() {
 		},
 		Commands: []commands.CommandInfo{
 			{
-				Name:        "epltable",
-				Aliases:     []string{},
+				Name:        "epl table",
+				Aliases:     []string{"epltable"},
 				Description: "Shows the current Premier League table",
-				Usage:       ".epltable",
+				Usage:       ".epl table",
 				Category:    "Sports",
 			},
 			{
-				Name:        "nextmatch",
-				Aliases:     []string{},
+				Name:        "epl next",
+				Aliases:     []string{"nextmatch"},
 				Description: "Shows upcoming Premier League fixtures. Use with a club name to see their next match.",
-				Usage:       ".nextmatch [club_name]",
+				Usage:       ".epl next [club_name]",
 				Category:    "Sports",
 			},
 		},
@@ -37,6 +37,6 @@ func init() {
 	commands.RegisterModule(module)
 
 	// Register command handlers
-	commands.RegisterCommand("epltable", EPLTable)
-	commands.RegisterCommand("nextmatch", NextMatch)
+	commands.RegisterCommand("epl table", EPLTable, "epltable")
+	commands.RegisterCommand("epl next", NextMatch, "nextmatch")
 }

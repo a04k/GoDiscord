@@ -8,14 +8,9 @@ import (
 	"time"
 
 	"DiscordBot/bot"
-	"DiscordBot/commands"
 
 	"github.com/bwmarrin/discordgo"
 )
-
-func init() {
-	commands.RegisterCommand("nextmatch", NextMatch)
-}
 
 func NextMatch(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	if len(args) <= 1 {

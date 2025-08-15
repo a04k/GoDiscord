@@ -5,12 +5,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
-	"DiscordBot/commands"
 )
-
-func init() {
-	commands.RegisterCommand("f1sub", F1Subscribe)
-}
 
 func F1Subscribe(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	// Ensure user exists in global users table

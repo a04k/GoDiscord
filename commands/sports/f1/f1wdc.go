@@ -6,12 +6,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
-	"DiscordBot/commands"
 )
-
-func init() {
-	commands.RegisterCommand("f1wdc", F1WDC)
-}
 
 // F1WDC displays the drivers' championship standings or a specific driver's position
 func F1WDC(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {

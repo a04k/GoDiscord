@@ -7,12 +7,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
-	"DiscordBot/commands"
 )
-
-func init() {
-	commands.RegisterCommand("qualiresults", QualiResults)
-}
 
 // QualiResults displays the qualifying results for the last race
 func QualiResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {

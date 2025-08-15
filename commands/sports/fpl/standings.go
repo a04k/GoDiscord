@@ -8,12 +8,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
-	"DiscordBot/commands"
 )
-
-func init() {
-	commands.RegisterCommand("fplstandings", FPLStandings, "fpl")
-}
 
 func FPLStandings(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	// Get the FPL league ID for this guild

@@ -7,12 +7,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
-	"DiscordBot/commands"
 )
-
-func init() {
-	commands.RegisterCommand("f1", F1)
-}
 
 func F1(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	// Ensure user exists in global users table

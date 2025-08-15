@@ -7,12 +7,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
-	"DiscordBot/commands"
 )
-
-func init() {
-	commands.RegisterCommand("nextf1session", NextF1Session)
-}
 
 func NextF1Session(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	events, err := FetchF1Events()

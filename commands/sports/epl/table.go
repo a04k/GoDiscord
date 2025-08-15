@@ -9,12 +9,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
-	"DiscordBot/commands"
 )
-
-func init() {
-	commands.RegisterCommand("epltable", EPLTable)
-}
 
 func EPLTable(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	// Fetch Premier League table from API

@@ -5,11 +5,12 @@ import (
 	"log"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
+
+	"github.com/bwmarrin/discordgo"
 )
 
-func F1(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
+func F1NextEvent(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	// Ensure user exists in global users table
 	_, err := b.Db.Exec(`
 		INSERT INTO users (user_id, username, avatar, created_at, updated_at)
@@ -40,12 +41,13 @@ func F1(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []str
 		if len(event.Sessions) == 0 {
 			continue
 		}
-		
+
 		// Get the first session of the event (typically Practice 1)
 		firstSession := event.Sessions[0]
 		eventStartTime, err := time.Parse(time.RFC3339, firstSession.Date)
 		if err != nil {
-			continue		}
+			continue
+		}
 
 		// Find the first event that hasn't started yet
 		if eventStartTime.After(now) {
@@ -117,10 +119,10 @@ func F1(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []str
 			if err != nil {
 				continue
 			}
-			
+
 			sessionInfo += fmt.Sprintf("**%s**: <t:%d:F>\n", session.Name, sessionTime.Unix())
 		}
-		
+
 		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
 			Name:   "Sessions",
 			Value:  sessionInfo,

@@ -21,13 +21,6 @@ func init() {
 		},
 		Commands: []commands.CommandInfo{
 			{
-				Name:        "f1",
-				Aliases:     []string{},
-				Description: "Shows current F1 information",
-				Usage:       ".f1",
-				Category:    "Sports",
-			},
-			{
 				Name:        "f1 results",
 				Aliases:     []string{"f1results"},
 				Description: "Shows the latest F1 race results",
@@ -63,6 +56,13 @@ func init() {
 				Category:    "Sports",
 			},
 			{
+				Name:        "f1 nextevent",
+				Aliases:     []string{},
+				Description: "Shows information about the next F1 event",
+				Usage:       ".f1 nextevent",
+				Category:    "Sports",
+			},
+			{
 				Name:        "f1 next",
 				Aliases:     []string{"nextf1session"},
 				Description: "Shows information about the next F1 session",
@@ -90,12 +90,12 @@ func init() {
 	commands.RegisterModule(module)
 
 	// Register command handlers
-	commands.RegisterCommand("f1", F1)
 	commands.RegisterCommand("f1 results", F1Results, "f1results")
 	commands.RegisterCommand("f1 standings", F1Standings, "f1standings")
 	commands.RegisterCommand("f1 wdc", F1WDC, "f1wdc")
 	commands.RegisterCommand("f1 wcc", F1WCC, "f1wcc")
 	commands.RegisterCommand("f1 quali", QualiResults, "qualiresults")
+	commands.RegisterCommand("f1 nextevent", F1NextEvent)
 	commands.RegisterCommand("f1 next", NextF1Session, "nextf1session")
 	commands.RegisterCommand("f1 sub", F1Subscribe, "f1sub")
 }

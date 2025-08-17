@@ -6,6 +6,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
+	"DiscordBot/commands/help"
 )
 
 // F1WDC displays the drivers' championship standings or a specific driver's position
@@ -21,7 +22,7 @@ func F1WDC(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []
 	getDriversChampionship(b, s, m)
 }
 
-// getDriversChampionship fetches and displays the full drivers' championship
+// getDriversChampionship fetches and displays the full drivers' championship with pagination
 func getDriversChampionship(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate) {
 	data, err := FetchDriverStandings()
 	if err != nil {
@@ -37,42 +38,111 @@ func getDriversChampionship(b *bot.Bot, s *discordgo.Session, m *discordgo.Messa
 	standings := data.MRData.StandingsTable.StandingsLists[0].DriverStandings
 	season := data.MRData.StandingsTable.Season
 
-	// Create an embed with the drivers' championship standings
-	embed := &discordgo.MessageEmbed{
-		Title: fmt.Sprintf("🏎️ F1 Drivers' Championship %s", season),
-		Color: 0xFF0000, // Red color for F1
+	// Create paginated pages
+	pages := createF1WDCPages(standings, season)
+
+	// Send the first page
+	msg, err := s.ChannelMessageSendEmbed(m.ChannelID, pages[0])
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "Error sending F1 drivers' championship.")
+		return
 	}
 
-	// Add driver standings (top 15)
-	driversAdded := 0
-	for _, standing := range standings {
-		if driversAdded >= 15 {
-			break
-		}
-		
-		driverName := fmt.Sprintf("%s %s", standing.Driver.GivenName, standing.Driver.FamilyName)
-		
-		// Add position indicator for top 3
-		positionStr := fmt.Sprintf("#%s", standing.Position)
-		switch standing.Position {
-		case "1":
-			positionStr = "🥇 #" + standing.Position
-		case "2":
-			positionStr = "🥈 #" + standing.Position
-		case "3":
-			positionStr = "🥉 #" + standing.Position
-		}
-		
-		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
-			Name:   fmt.Sprintf("%s %s (%s)", positionStr, driverName, standing.Driver.Code),
-			Value:  fmt.Sprintf("Points: %s\nWins: %s", standing.Points, standing.Wins),
-			Inline: false,
-		})
-		
-		driversAdded++
+	// If there's only one page, no need for pagination
+	if len(pages) <= 1 {
+		return
 	}
 
-	s.ChannelMessageSendEmbed(m.ChannelID, embed)
+	// Add reactions for pagination
+	err = s.MessageReactionAdd(msg.ChannelID, msg.ID, "⬅️")
+	if err != nil {
+		// Ignore error, not critical
+	}
+
+	err = s.MessageReactionAdd(msg.ChannelID, msg.ID, "➡️")
+	if err != nil {
+		// Ignore error, not critical
+	}
+
+	// Store pagination state
+	state := &help.PaginationState{
+		UserID:      m.Author.ID,
+		MessageID:   msg.ID,
+		CurrentPage: 0,
+		TotalPages:  len(pages),
+		Pages:       pages,
+		GuildID:     m.GuildID,
+	}
+
+	help.GetPaginationManager().AddState(state)
+}
+
+// createF1WDCPages creates paginated embeds for the F1 drivers' championship
+func createF1WDCPages(standings []struct {
+	Position  string `json:"position"`
+	Points    string `json:"points"`
+	Wins      string `json:"wins"`
+	Driver    struct {
+		GivenName  string `json:"givenName"`
+		FamilyName string `json:"familyName"`
+		Code       string `json:"code"`
+	} `json:"Driver"`
+}, season string) []*discordgo.MessageEmbed {
+	const driversPerPage = 10
+	totalDrivers := len(standings)
+	numPages := (totalDrivers + driversPerPage - 1) / driversPerPage
+	
+	if numPages == 0 {
+		numPages = 1
+	}
+	
+	pages := make([]*discordgo.MessageEmbed, numPages)
+	
+	for page := 0; page < numPages; page++ {
+		startIndex := page * driversPerPage
+		endIndex := startIndex + driversPerPage
+		
+		// Don't go beyond the actual number of drivers
+		if endIndex > totalDrivers {
+			endIndex = totalDrivers
+		}
+		
+		embed := &discordgo.MessageEmbed{
+			Title: fmt.Sprintf("🏎️ F1 Drivers' Championship %s", season),
+			Color: 0xFF0000, // Red color for F1
+		}
+		
+		// Add driver standings for this page
+		for i := startIndex; i < endIndex; i++ {
+			standing := standings[i]
+			driverName := fmt.Sprintf("%s %s", standing.Driver.GivenName, standing.Driver.FamilyName)
+			
+			// Add position indicator for top 3
+			positionStr := fmt.Sprintf("#%s", standing.Position)
+			switch standing.Position {
+			case "1":
+				positionStr = "🥇 #" + standing.Position
+			case "2":
+				positionStr = "🥈 #" + standing.Position
+			case "3":
+				positionStr = "🥉 #" + standing.Position
+			}
+			
+			embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+				Name:   fmt.Sprintf("%s %s (%s)", positionStr, driverName, standing.Driver.Code),
+				Value:  fmt.Sprintf("Points: %s\nWins: %s", standing.Points, standing.Wins),
+				Inline: false,
+			})
+		}
+		
+		embed.Footer = &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("Page %d of %d", page+1, numPages),
+		}
+		
+		pages[page] = embed
+	}
+	
+	return pages
 }
 
 // getSpecificDriverStanding fetches and displays a specific driver's championship position

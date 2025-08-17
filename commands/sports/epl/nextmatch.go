@@ -29,6 +29,12 @@ func showUpcomingFixtures(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 		return
 	}
 
+	events, err := getEventsData()
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "Error fetching event data. Please try again later.")
+		return
+	}
+
 	teamsData, err := getTeamsData()
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, "Error fetching team data. Please try again later.")
@@ -40,13 +46,42 @@ func showUpcomingFixtures(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 		shortNameMap[t.ID] = t.ShortName
 	}
 
+	// Find the current or next gameweek
+	currentGW := 0
+	for _, event := range events {
+		// Check if the event has started but not finished
+		if !event.Finished && event.ID > currentGW {
+			currentGW = event.ID
+		}
+	}
+
+	// If no current GW found, use the first upcoming GW
+	if currentGW == 0 {
+		for _, event := range events {
+			if !event.Finished {
+				currentGW = event.ID
+				break
+			}
+		}
+	}
+
+	// If still no GW found, default to showing all fixtures
+	if currentGW == 0 {
+		currentGW = 1
+	}
+
 	embed := &discordgo.MessageEmbed{
-		Title: "Upcoming Premier League Fixtures",
+		Title: fmt.Sprintf("Upcoming Premier League Fixtures (GW%d)", currentGW),
 		Color: 0x3b82f6,
 	}
 
 	count := 0
 	for _, match := range fixtures {
+		// Only show fixtures for the current gameweek
+		if match.Event != currentGW {
+			continue
+		}
+
 		if count >= 10 {
 			break
 		}
@@ -64,7 +99,7 @@ func showUpcomingFixtures(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 		awayTeam := shortNameMap[match.TeamA]
 
 		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
-			Name:  fmt.Sprintf("GW%d: %s vs %s", match.Event, homeTeam, awayTeam),
+			Name:  fmt.Sprintf("%s vs %s", homeTeam, awayTeam),
 			Value: fmt.Sprintf("Date: %s", timeStr),
 		})
 
@@ -72,7 +107,7 @@ func showUpcomingFixtures(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 	}
 
 	if len(embed.Fields) == 0 {
-		embed.Description = "No upcoming fixtures found."
+		embed.Description = "No upcoming fixtures found for the current gameweek."
 	}
 
 	s.ChannelMessageSendEmbed(m.ChannelID, embed)
@@ -177,6 +212,26 @@ func fetchFixtures() ([]FPLFixture, error) {
 	return data, nil
 }
 
+func getEventsData() ([]FPLEvent, error) {
+	url := "https://fantasy.premierleague.com/api/bootstrap-static/"
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP error: %d", resp.StatusCode)
+	}
+
+	var data FPLBootstrapStatic
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+
+	return data.Events, nil
+}
+
 func getTeamsData() ([]FPLTeam, error) {
 	url := "https://fantasy.premierleague.com/api/bootstrap-static/"
 	resp, err := http.Get(url)
@@ -206,6 +261,12 @@ type FPLFixture struct {
 	Finished    bool   `json:"finished"`
 }
 
+type FPLEvent struct {
+	ID      int    `json:"id"`
+	Name    string `json:"name"`
+	Finished bool  `json:"finished"`
+}
+
 type FPLTeam struct {
 	ID        int    `json:"id"`
 	Name      string `json:"name"`
@@ -213,5 +274,6 @@ type FPLTeam struct {
 }
 
 type FPLBootstrapStatic struct {
-	Teams []FPLTeam `json:"teams"`
+	Teams  []FPLTeam  `json:"teams"`
+	Events []FPLEvent `json:"events"`
 }

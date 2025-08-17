@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
-	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
@@ -129,55 +128,47 @@ func createFPLStandingsPages(data FPLLeague) []*discordgo.MessageEmbed {
 			endIndex = totalItems
 		}
 		
-		// Create a nice formatted table
-		var table strings.Builder
-		table.WriteString("```\n")
-		table.WriteString("Rank  Team Manager          Entry Name         Points\n")
-		table.WriteString("----------------------------------------------------\n")
+		embed := &discordgo.MessageEmbed{
+			Title:       fmt.Sprintf("FPL League Standings - %s", data.League.Name),
+			Description: fmt.Sprintf("Total Players: %d", data.Standings.TotalPlayers),
+			Color:       0x3b82f6,
+		}
 		
+		// Add players for this page
 		for i := startIndex; i < endIndex; i++ {
 			player := data.Standings.Results[i]
 			
-			// Add medal emojis for top 3
-			rankStr := fmt.Sprintf("%d", player.Rank)
-			switch player.Rank {
-			case 1:
-				rankStr = "🥇1"
-			case 2:
-				rankStr = "🥈2"
-			case 3:
-				rankStr = "🥉3"
-			}
-			
 			// Format player name and entry name
 			playerName := player.PlayerName
-			if len(playerName) > 18 {
-				playerName = playerName[:15] + "..."
+			if len(playerName) > 25 {
+				playerName = playerName[:22] + "..."
 			}
 			
 			entryName := player.EntryName
-			if len(entryName) > 18 {
-				entryName = entryName[:15] + "..."
+			if len(entryName) > 25 {
+				entryName = entryName[:22] + "..."
 			}
 			
-			table.WriteString(fmt.Sprintf(
-				"%-4s  %-18s %-18s %6d\n",
-				rankStr,
-				playerName,
-				entryName,
-				player.Total,
-			))
+			// Add position indicator for top 3
+			positionStr := fmt.Sprintf("#%d", player.Rank)
+			switch player.Rank {
+			case 1:
+				positionStr = "🥇 #" + fmt.Sprintf("%d", player.Rank)
+			case 2:
+				positionStr = "🥈 #" + fmt.Sprintf("%d", player.Rank)
+			case 3:
+				positionStr = "🥉 #" + fmt.Sprintf("%d", player.Rank)
+			}
+			
+			embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+				Name:  fmt.Sprintf("%s %s", positionStr, entryName),
+				Value: fmt.Sprintf("Manager: %s\nPoints: %d", playerName, player.Total),
+				Inline: false,
+			})
 		}
 		
-		table.WriteString("```")
-		
-		embed := &discordgo.MessageEmbed{
-			Title:       fmt.Sprintf("FPL League Standings - %s", data.League.Name),
-			Description: fmt.Sprintf("Total Players: %d\n%s", data.Standings.TotalPlayers, table.String()),
-			Color:       0x3b82f6,
-			Footer: &discordgo.MessageEmbedFooter{
-				Text: fmt.Sprintf("Page %d of %d", page+1, numPages),
-			},
+		embed.Footer = &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("Page %d of %d", page+1, numPages),
 		}
 		
 		pages[page] = embed

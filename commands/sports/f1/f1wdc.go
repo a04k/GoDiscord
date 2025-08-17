@@ -37,28 +37,39 @@ func getDriversChampionship(b *bot.Bot, s *discordgo.Session, m *discordgo.Messa
 	standings := data.MRData.StandingsTable.StandingsLists[0].DriverStandings
 	season := data.MRData.StandingsTable.Season
 
-	// Format the standings into a table-like string
-	standingsStr := ""
-	for _, standing := range standings {
-		driverName := fmt.Sprintf("%s %s", standing.Driver.GivenName, standing.Driver.FamilyName)
-		standingsStr += fmt.Sprintf("`%-2s` %-20s %-4s %-3s\n",
-			standing.Position,
-			TruncateString(driverName, 20),
-			standing.Points,
-			standing.Wins)
-	}
-
 	// Create an embed with the drivers' championship standings
 	embed := &discordgo.MessageEmbed{
 		Title: fmt.Sprintf("🏎️ F1 Drivers' Championship %s", season),
 		Color: 0xFF0000, // Red color for F1
-		Fields: []*discordgo.MessageEmbedField{
-			{
-				Name:   "Standings",
-				Value:  fmt.Sprintf("```\nPos Driver               Pts  Wins\n%s```", standingsStr),
-				Inline: false,
-			},
-		},
+	}
+
+	// Add driver standings (top 15)
+	driversAdded := 0
+	for _, standing := range standings {
+		if driversAdded >= 15 {
+			break
+		}
+		
+		driverName := fmt.Sprintf("%s %s", standing.Driver.GivenName, standing.Driver.FamilyName)
+		
+		// Add position indicator for top 3
+		positionStr := fmt.Sprintf("#%s", standing.Position)
+		switch standing.Position {
+		case "1":
+			positionStr = "🥇 #" + standing.Position
+		case "2":
+			positionStr = "🥈 #" + standing.Position
+		case "3":
+			positionStr = "🥉 #" + standing.Position
+		}
+		
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:   fmt.Sprintf("%s %s (%s)", positionStr, driverName, standing.Driver.Code),
+			Value:  fmt.Sprintf("Points: %s\nWins: %s", standing.Points, standing.Wins),
+			Inline: false,
+		})
+		
+		driversAdded++
 	}
 
 	s.ChannelMessageSendEmbed(m.ChannelID, embed)

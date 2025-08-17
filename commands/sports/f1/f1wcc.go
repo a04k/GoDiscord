@@ -28,27 +28,30 @@ func getConstructorsChampionship(b *bot.Bot, s *discordgo.Session, m *discordgo.
 	standings := data.MRData.StandingsTable.StandingsLists[0].ConstructorStandings
 	season := data.MRData.StandingsTable.Season
 
-	// Format the standings into a table-like string
-	standingsStr := ""
-	for _, standing := range standings {
-		standingsStr += fmt.Sprintf("`%-2s` %-15s %-4s %-3s\n",
-			standing.Position,
-			TruncateString(standing.Constructor.Name, 15),
-			standing.Points,
-			standing.Wins)
-	}
-
 	// Create an embed with the constructors' championship standings
 	embed := &discordgo.MessageEmbed{
 		Title: fmt.Sprintf("🏎️ F1 Constructors' Championship %s", season),
 		Color: 0xFF0000, // Red color for F1
-		Fields: []*discordgo.MessageEmbedField{
-			{
-				Name:   "Standings",
-				Value:  fmt.Sprintf("```\nPos Constructor     Pts  Wins\n%s```", standingsStr),
-				Inline: false,
-			},
-		},
+	}
+
+	// Add constructor standings (all)
+	for _, standing := range standings {
+		// Add position indicator for top 3
+		positionStr := fmt.Sprintf("#%s", standing.Position)
+		switch standing.Position {
+		case "1":
+			positionStr = "🥇 #" + standing.Position
+		case "2":
+			positionStr = "🥈 #" + standing.Position
+		case "3":
+			positionStr = "🥉 #" + standing.Position
+		}
+		
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:   fmt.Sprintf("%s %s", positionStr, standing.Constructor.Name),
+			Value:  fmt.Sprintf("Points: %s\nWins: %s", standing.Points, standing.Wins),
+			Inline: false,
+		})
 	}
 
 	s.ChannelMessageSendEmbed(m.ChannelID, embed)

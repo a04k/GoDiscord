@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
-	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
@@ -142,38 +141,26 @@ func createEPLTablePages(teams []struct {
 			endIndex = totalTeams
 		}
 		
-		// Create a nice formatted table
-		var table strings.Builder
-		table.WriteString("```\n")
-		table.WriteString("Pos  Team              P   W   D   L  GF  GA  GD  Pts\n")
-		table.WriteString("-----------------------------------------------------\n")
-		
-		for i := startIndex; i < endIndex; i++ {
-			team := teams[i]
-			table.WriteString(fmt.Sprintf(
-				"%2d   %-15s %2d  %2d  %2d  %2d  %2d  %2d  %3d  %3d\n",
-				team.Position,
-				team.ShortName,
-				team.Played,
-				team.Win,
-				team.Draw,
-				team.Loss,
-				team.GoalsFor,
-				team.GoalsAgainst,
-				team.GoalDifference,
-				team.Points,
-			))
+		embed := &discordgo.MessageEmbed{
+			Title: "Premier League Table",
+			Color: 0x3b82f6,
 		}
 		
-		table.WriteString("```")
+		// Add teams for this page
+		for i := startIndex; i < endIndex; i++ {
+			team := teams[i]
+			
+			embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+				Name: fmt.Sprintf("#%d %s", team.Position, team.ShortName),
+				Value: fmt.Sprintf("Played: %d\nWon: %d | Drawn: %d | Lost: %d\nGoals For: %d | Against: %d | Diff: %d\nPoints: %d", 
+					team.Played, team.Win, team.Draw, team.Loss,
+					team.GoalsFor, team.GoalsAgainst, team.GoalDifference, team.Points),
+				Inline: false,
+			})
+		}
 		
-		embed := &discordgo.MessageEmbed{
-			Title:       "Premier League Table",
-			Description: table.String(),
-			Color:       0x3b82f6,
-			Footer: &discordgo.MessageEmbedFooter{
-				Text: fmt.Sprintf("Page %d of %d", page+1, numPages),
-			},
+		embed.Footer = &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("Page %d of %d", page+1, numPages),
 		}
 		
 		pages[page] = embed

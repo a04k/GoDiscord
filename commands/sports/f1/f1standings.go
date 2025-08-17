@@ -36,43 +36,73 @@ func F1Standings(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, a
 	constructorStandings := constructorStandingsResponse.MRData.StandingsTable.StandingsLists[0].ConstructorStandings
 	season := driverStandingsResponse.MRData.StandingsTable.Season
 
-	// Format the driver standings into a table-like string
-	driversStr := ""
-	for _, standing := range driverStandings {
-		driverName := fmt.Sprintf("%s %s", standing.Driver.GivenName, standing.Driver.FamilyName)
-		driversStr += fmt.Sprintf("`%-2s` %-20s %-4s %-3s\n", 
-			standing.Position, 
-			TruncateString(driverName, 20), 
-			standing.Points, 
-			standing.Wins)
-	}
-
-	// Format the constructor standings into a table-like string
-	constructorsStr := ""
-	for _, standing := range constructorStandings {
-		constructorsStr += fmt.Sprintf("`%-2s` %-15s %-4s %-3s\n", 
-			standing.Position, 
-			TruncateString(standing.Constructor.Name, 15), 
-			standing.Points, 
-			standing.Wins)
-	}
-
 	// Create an embed with the championship standings
 	embed := &discordgo.MessageEmbed{
 		Title: fmt.Sprintf("F1 Championship Standings %s", season),
 		Color: 0xFF0000, // Red color for F1
-		Fields: []*discordgo.MessageEmbedField{
-			{
-				Name:   "Drivers' Championship",
-				Value:  fmt.Sprintf("```\nPos Driver               Pts  Wins\n%s```", driversStr),
-				Inline: false,
-			},
-			{
-				Name:   "Constructors' Championship",
-				Value:  fmt.Sprintf("```\nPos Constructor     Pts  Wins\n%s```", constructorsStr),
-				Inline: false,
-			},
-		},
+	}
+
+	// Add driver standings (top 10)
+	driversAdded := 0
+	for _, standing := range driverStandings {
+		if driversAdded >= 10 {
+			break
+		}
+		
+		driverName := fmt.Sprintf("%s %s", standing.Driver.GivenName, standing.Driver.FamilyName)
+		
+		// Add position indicator for top 3
+		positionStr := fmt.Sprintf("#%s", standing.Position)
+		switch standing.Position {
+		case "1":
+			positionStr = "🥇 #" + standing.Position
+		case "2":
+			positionStr = "🥈 #" + standing.Position
+		case "3":
+			positionStr = "🥉 #" + standing.Position
+		}
+		
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:   fmt.Sprintf("%s %s (%s)", positionStr, driverName, standing.Driver.Code),
+			Value:  fmt.Sprintf("Points: %s\nWins: %s", standing.Points, standing.Wins),
+			Inline: false,
+		})
+		
+		driversAdded++
+	}
+
+	// Add a separator
+	embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+		Name:   "\u200B", // Zero-width space
+		Value:  "\u200B",
+		Inline: false,
+	})
+
+	// Add constructor standings (top 10)
+	constructorsAdded := 0
+	for _, standing := range constructorStandings {
+		if constructorsAdded >= 10 {
+			break
+		}
+		
+		// Add position indicator for top 3
+		positionStr := fmt.Sprintf("#%s", standing.Position)
+		switch standing.Position {
+		case "1":
+			positionStr = "🥇 #" + standing.Position
+		case "2":
+			positionStr = "🥈 #" + standing.Position
+		case "3":
+			positionStr = "🥉 #" + standing.Position
+		}
+		
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:   fmt.Sprintf("%s %s", positionStr, standing.Constructor.Name),
+			Value:  fmt.Sprintf("Points: %s\nWins: %s", standing.Points, standing.Wins),
+			Inline: false,
+		})
+		
+		constructorsAdded++
 	}
 
 	s.ChannelMessageSendEmbed(m.ChannelID, embed)

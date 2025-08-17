@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
+	"DiscordBot/commands/help"
 )
 
 func FPLStandings(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
@@ -45,16 +47,13 @@ func FPLStandings(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, 
 		return
 	}
 
-	// Create embed
-	embed := &discordgo.MessageEmbed{
-		Title:       fmt.Sprintf("FPL League Standings - %s", data.League.Name),
-		Description: fmt.Sprintf("Total Players: %d", data.Standings.TotalPlayers),
-		Color:       0x3b82f6,
-	}
-
 	// Check if there are any results
 	if len(data.Standings.Results) == 0 {
-		embed.Description = fmt.Sprintf("Total Players: %d\n\nNo standings available yet. The league may not have started or there might be no players.", data.Standings.TotalPlayers)
+		embed := &discordgo.MessageEmbed{
+			Title:       fmt.Sprintf("FPL League Standings - %s", data.League.Name),
+			Description: fmt.Sprintf("Total Players: %d\n\nNo standings available yet. The league may not have started or there might be no players.", data.Standings.TotalPlayers),
+			Color:       0x3b82f6,
+		}
 		s.ChannelMessageSendEmbed(m.ChannelID, embed)
 		return
 	}
@@ -64,35 +63,127 @@ func FPLStandings(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, 
 		return data.Standings.Results[i].Rank < data.Standings.Results[j].Rank
 	})
 
-	// Add top 15 players
-	count := 0
-	for _, player := range data.Standings.Results {
-		if count >= 15 {
-			break
-		}
-		
-		// Format the entry name to fit better
-		entryName := player.EntryName
-		if len(entryName) > 20 {
-			entryName = entryName[:17] + "..."
-		}
-		
-		// Format the player name to fit better
-		playerName := player.PlayerName
-		if len(playerName) > 15 {
-			playerName = playerName[:12] + "..."
-		}
-		
-		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
-			Name:  fmt.Sprintf("#%d %s", player.Rank, entryName),
-			Value: fmt.Sprintf("Player: %s\nPoints: %d", playerName, player.Total),
-			Inline: false,
-		})
-		
-		count++
+	// Create paginated pages - increase limit to top 100
+	pages := createFPLStandingsPages(data)
+
+	// Send the first page
+	msg, err := s.ChannelMessageSendEmbed(m.ChannelID, pages[0])
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "Error sending FPL standings.")
+		return
 	}
 
-	s.ChannelMessageSendEmbed(m.ChannelID, embed)
+	// If there's only one page, no need for pagination
+	if len(pages) <= 1 {
+		return
+	}
+
+	// Add reactions for pagination
+	err = s.MessageReactionAdd(msg.ChannelID, msg.ID, "⬅️")
+	if err != nil {
+		// Ignore error, not critical
+	}
+
+	err = s.MessageReactionAdd(msg.ChannelID, msg.ID, "➡️")
+	if err != nil {
+		// Ignore error, not critical
+	}
+
+	// Store pagination state
+	state := &help.PaginationState{
+		UserID:      m.Author.ID,
+		MessageID:   msg.ID,
+		CurrentPage: 0,
+		TotalPages:  len(pages),
+		Pages:       pages,
+		GuildID:     m.GuildID,
+	}
+
+	help.GetPaginationManager().AddState(state)
+}
+
+func createFPLStandingsPages(data FPLLeague) []*discordgo.MessageEmbed {
+	const itemsPerPage = 15
+	const maxItems = 100
+	totalItems := len(data.Standings.Results)
+	
+	// Limit to maxItems
+	if totalItems > maxItems {
+		totalItems = maxItems
+	}
+	
+	// Calculate number of pages needed
+	numPages := (totalItems + itemsPerPage - 1) / itemsPerPage
+	if numPages == 0 {
+		numPages = 1
+	}
+	
+	pages := make([]*discordgo.MessageEmbed, numPages)
+	
+	for page := 0; page < numPages; page++ {
+		startIndex := page * itemsPerPage
+		endIndex := startIndex + itemsPerPage
+		
+		// Don't go beyond the actual number of items
+		if endIndex > totalItems {
+			endIndex = totalItems
+		}
+		
+		// Create a nice formatted table
+		var table strings.Builder
+		table.WriteString("```\n")
+		table.WriteString("Rank  Team Manager          Entry Name         Points\n")
+		table.WriteString("----------------------------------------------------\n")
+		
+		for i := startIndex; i < endIndex; i++ {
+			player := data.Standings.Results[i]
+			
+			// Add medal emojis for top 3
+			rankStr := fmt.Sprintf("%d", player.Rank)
+			switch player.Rank {
+			case 1:
+				rankStr = "🥇1"
+			case 2:
+				rankStr = "🥈2"
+			case 3:
+				rankStr = "🥉3"
+			}
+			
+			// Format player name and entry name
+			playerName := player.PlayerName
+			if len(playerName) > 18 {
+				playerName = playerName[:15] + "..."
+			}
+			
+			entryName := player.EntryName
+			if len(entryName) > 18 {
+				entryName = entryName[:15] + "..."
+			}
+			
+			table.WriteString(fmt.Sprintf(
+				"%-4s  %-18s %-18s %6d\n",
+				rankStr,
+				playerName,
+				entryName,
+				player.Total,
+			))
+		}
+		
+		table.WriteString("```")
+		
+		embed := &discordgo.MessageEmbed{
+			Title:       fmt.Sprintf("FPL League Standings - %s", data.League.Name),
+			Description: fmt.Sprintf("Total Players: %d\n%s", data.Standings.TotalPlayers, table.String()),
+			Color:       0x3b82f6,
+			Footer: &discordgo.MessageEmbedFooter{
+				Text: fmt.Sprintf("Page %d of %d", page+1, numPages),
+			},
+		}
+		
+		pages[page] = embed
+	}
+	
+	return pages
 }
 
 // FPL Data Structures

@@ -60,6 +60,11 @@ func (pm *PaginationManager) RemoveState(messageID string) {
 // Global pagination manager
 var paginationManager = NewPaginationManager()
 
+// GetPaginationManager returns the global pagination manager
+func GetPaginationManager() *PaginationManager {
+	return paginationManager
+}
+
 // CreateCommandListPages creates paginated embeds for the command list
 func CreateCommandListPages(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate) ([]*discordgo.MessageEmbed, error) {
 	// Get disabled commands and categories for this guild

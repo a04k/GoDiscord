@@ -22,16 +22,30 @@ func NextMatch(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, arg
 	showClubNextMatch(b, s, m, clubName)
 }
 
-func showUpcomingFixtures(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate) {
-	fixtures, err := fetchFixtures()
+func fetchAllFixtures() ([]FPLFixture, error) {
+	url := "https://fantasy.premierleague.com/api/fixtures/"
+	resp, err := http.Get(url)
 	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, "Error fetching EPL fixtures. Please try again later.")
-		return
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP error: %d", resp.StatusCode)
 	}
 
-	events, err := getEventsData()
+	var data []FPLFixture
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func showUpcomingFixtures(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate) {
+	fixtures, err := fetchAllFixtures()
 	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, "Error fetching event data. Please try again later.")
+		s.ChannelMessageSend(m.ChannelID, "Error fetching EPL fixtures. Please try again later.")
 		return
 	}
 
@@ -41,42 +55,25 @@ func showUpcomingFixtures(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 		return
 	}
 
+	// Create maps for team names
+	teamNameMap := make(map[int]string)
 	shortNameMap := make(map[int]string)
 	for _, t := range teamsData {
+		teamNameMap[t.ID] = t.Name
 		shortNameMap[t.ID] = t.ShortName
 	}
 
-	// Find the current or next gameweek
+	// Find the current gameweek - first GW with unfinished matches
 	currentGW := 0
-	
-	// First, try to find an event that has started but not finished
-	for _, event := range events {
-		if !event.Finished {
-			// Check if this event has already started (based on date)
-			eventDate, err := time.Parse("2006-01-02T15:04:05Z", event.DeadlineTime)
-			if err != nil {
-				continue
-			}
-			
-			// If the deadline has passed, this is likely the current GW
-			if eventDate.Before(time.Now()) {
-				currentGW = event.ID
-				break
+	for _, fixture := range fixtures {
+		if !fixture.Finished {
+			if currentGW == 0 || fixture.Event < currentGW {
+				currentGW = fixture.Event
 			}
 		}
 	}
 	
-	// If no current GW found, find the first unfinished GW
-	if currentGW == 0 {
-		for _, event := range events {
-			if !event.Finished {
-				currentGW = event.ID
-				break
-			}
-		}
-	}
-	
-	// If still no GW found, default to the first GW
+	// If no unfinished fixtures found, default to first GW
 	if currentGW == 0 {
 		currentGW = 1
 	}
@@ -125,7 +122,7 @@ func showUpcomingFixtures(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 }
 
 func showClubNextMatch(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, clubName string) {
-	fixtures, err := fetchFixtures()
+	fixtures, err := fetchAllFixtures()
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, "Error fetching EPL fixtures. Please try again later.")
 		return
@@ -137,18 +134,24 @@ func showClubNextMatch(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCre
 		return
 	}
 
-	teamMap := make(map[int]string)
+	// Create maps for team names
+	teamNameMap := make(map[int]string)
 	shortNameMap := make(map[int]string)
 	for _, t := range teamsData {
-		teamMap[t.ID] = t.Name
+		teamNameMap[t.ID] = t.Name
 		shortNameMap[t.ID] = t.ShortName
 	}
 
 	var nextMatch *FPLFixture
 	var isHomeTeam bool
 	for _, match := range fixtures {
-		homeTeam := teamMap[match.TeamH]
-		awayTeam := teamMap[match.TeamA]
+		// Only consider unfinished matches
+		if match.Finished {
+			continue
+		}
+
+		homeTeam := teamNameMap[match.TeamH]
+		awayTeam := teamNameMap[match.TeamA]
 		homeShort := shortNameMap[match.TeamH]
 		awayShort := shortNameMap[match.TeamA]
 
@@ -157,10 +160,21 @@ func showClubNextMatch(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCre
 			strings.Contains(strings.ToLower(homeShort), strings.ToLower(clubName)) ||
 			strings.Contains(strings.ToLower(awayShort), strings.ToLower(clubName)) {
 
-			nextMatch = &match
-			isHomeTeam = strings.Contains(strings.ToLower(homeTeam), strings.ToLower(clubName)) ||
-				strings.Contains(strings.ToLower(homeShort), strings.ToLower(clubName))
-			break
+			// If we haven't found a match yet, or this match is earlier than the current one
+			if nextMatch == nil {
+				nextMatch = &match
+				isHomeTeam = strings.Contains(strings.ToLower(homeTeam), strings.ToLower(clubName)) ||
+					strings.Contains(strings.ToLower(homeShort), strings.ToLower(clubName))
+			} else {
+				// Compare kickoff times to find the earliest match
+				currentTime, _ := time.Parse("2006-01-02T15:04:05Z", nextMatch.KickoffTime)
+				newTime, _ := time.Parse("2006-01-02T15:04:05Z", match.KickoffTime)
+				if newTime.Before(currentTime) {
+					nextMatch = &match
+					isHomeTeam = strings.Contains(strings.ToLower(homeTeam), strings.ToLower(clubName)) ||
+						strings.Contains(strings.ToLower(homeShort), strings.ToLower(clubName))
+				}
+			}
 		}
 	}
 
@@ -204,7 +218,7 @@ func showClubNextMatch(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCre
 }
 
 func fetchFixtures() ([]FPLFixture, error) {
-	url := "https://fantasy.premierleague.com/api/fixtures/?future=1"
+	url := "https://fantasy.premierleague.com/api/fixtures/"
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err

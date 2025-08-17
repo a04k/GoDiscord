@@ -9,6 +9,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
+	"DiscordBot/commands/help"
 )
 
 func EPLTable(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
@@ -34,10 +35,24 @@ func EPLTable(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args
 		return
 	}
 
-	// Create embed
-	embed := &discordgo.MessageEmbed{
-		Title: "Premier League Table",
-		Color: 0x3b82f6,
+	// Check if there's any data to show
+	hasData := false
+	for _, team := range data.Teams {
+		if team.Played > 0 || team.Points > 0 {
+			hasData = true
+			break
+		}
+	}
+
+	// If no data, show a message
+	if !hasData {
+		embed := &discordgo.MessageEmbed{
+			Title:       "Premier League Table",
+			Description: "The Premier League season has not started yet. Check back after the first matches!",
+			Color:       0x3b82f6,
+		}
+		s.ChannelMessageSendEmbed(m.ChannelID, embed)
+		return
 	}
 
 	// Sort teams by position
@@ -54,34 +69,117 @@ func EPLTable(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args
 		data.Teams[i].Position = i + 1
 	}
 
-	// Create table as a string
-	var table strings.Builder
-	table.WriteString("Pos | Team | P | W | D | L | GF | GA | GD | Pts\n")
-	table.WriteString("--- | ---- | - | - | - | - | -- | -- | -- | ---\n")
-	
-	for _, team := range data.Teams {
-		// Skip teams after position 20 (if any)
-		if team.Position > 20 {
-			continue
-		}
-		
-		table.WriteString(fmt.Sprintf(
-			"%2d | %-4s | %2d | %2d | %2d | %2d | %2d | %2d | %3d | %3d\n",
-			team.Position,
-			team.ShortName,
-			team.Played,
-			team.Win,
-			team.Draw,
-			team.Loss,
-			team.GoalsFor,
-			team.GoalsAgainst,
-			team.GoalDifference,
-			team.Points,
-		))
+	// Create paginated pages
+	pages := createEPLTablePages(data.Teams)
+
+	// Send the first page
+	msg, err := s.ChannelMessageSendEmbed(m.ChannelID, pages[0])
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "Error sending EPL table.")
+		return
 	}
 
-	embed.Description = fmt.Sprintf("```\n%s```", table.String())
-	s.ChannelMessageSendEmbed(m.ChannelID, embed)
+	// If there's only one page, no need for pagination
+	if len(pages) <= 1 {
+		return
+	}
+
+	// Add reactions for pagination
+	err = s.MessageReactionAdd(msg.ChannelID, msg.ID, "⬅️")
+	if err != nil {
+		// Ignore error, not critical
+	}
+
+	err = s.MessageReactionAdd(msg.ChannelID, msg.ID, "➡️")
+	if err != nil {
+		// Ignore error, not critical
+	}
+
+	// Store pagination state
+	state := &help.PaginationState{
+		UserID:      m.Author.ID,
+		MessageID:   msg.ID,
+		CurrentPage: 0,
+		TotalPages:  len(pages),
+		Pages:       pages,
+		GuildID:     m.GuildID,
+	}
+
+	help.GetPaginationManager().AddState(state)
+}
+
+func createEPLTablePages(teams []struct {
+	ID              int    `json:"id"`
+	Name            string `json:"name"`
+	ShortName       string `json:"short_name"`
+	Strength        int    `json:"strength"`
+	Position        int    `json:"-"`
+	Played          int    `json:"played"`
+	Win             int    `json:"win"`
+	Draw            int    `json:"draw"`
+	Loss            int    `json:"loss"`
+	Points          int    `json:"points"`
+	GoalsFor        int    `json:"goals_for"`
+	GoalsAgainst    int    `json:"goals_against"`
+	GoalDifference  int    `json:"goal_difference"`
+}) []*discordgo.MessageEmbed {
+	const teamsPerPage = 10
+	totalTeams := len(teams)
+	numPages := (totalTeams + teamsPerPage - 1) / teamsPerPage
+	
+	if numPages == 0 {
+		numPages = 1
+	}
+	
+	pages := make([]*discordgo.MessageEmbed, numPages)
+	
+	for page := 0; page < numPages; page++ {
+		startIndex := page * teamsPerPage
+		endIndex := startIndex + teamsPerPage
+		
+		// Don't go beyond the actual number of teams
+		if endIndex > totalTeams {
+			endIndex = totalTeams
+		}
+		
+		// Create a nice formatted table
+		var table strings.Builder
+		table.WriteString("```\n")
+		table.WriteString("Pos  Team              P   W   D   L  GF  GA  GD  Pts\n")
+		table.WriteString("-----------------------------------------------------\n")
+		
+		for i := startIndex; i < endIndex; i++ {
+			team := teams[i]
+			table.WriteString(fmt.Sprintf(
+				"%2d   %-15s %2d  %2d  %2d  %2d  %2d  %2d  %3d  %3d\n",
+				team.Position,
+				team.ShortName,
+				team.Played,
+				team.Win,
+				team.Draw,
+				team.Loss,
+				team.GoalsFor,
+				team.GoalsAgainst,
+				team.GoalDifference,
+				team.Points,
+			))
+		}
+		
+		table.WriteString("```")
+		
+		embed := &discordgo.MessageEmbed{
+			Title:       "Premier League Table",
+			Description: table.String(),
+			Color:       0x3b82f6,
+			Footer: &discordgo.MessageEmbedFooter{
+				Text: fmt.Sprintf("Page %d of %d", page+1, numPages),
+			},
+		}
+		
+		pages[page] = embed
+	}
+	
+	return pages
 }
 
 // FPL Bootstrap Data Structures

@@ -1,8 +1,31 @@
 package epl
 
 import (
+	"strings"
+
+	"DiscordBot/bot"
 	"DiscordBot/commands"
+
+	"github.com/bwmarrin/discordgo"
 )
+
+// EPL handles all EPL subcommands
+func EPL(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
+	if len(args) < 2 {
+		s.ChannelMessageSend(m.ChannelID, "Usage: .epl <subcommand>\nAvailable subcommands: table, next")
+		return
+	}
+
+	subcommand := strings.ToLower(args[1])
+	switch subcommand {
+	case "table", "epltable":
+		EPLTable(b, s, m, args[1:])
+	case "next", "nextmatch":
+		NextMatch(b, s, m, args[1:])
+	default:
+		s.ChannelMessageSend(m.ChannelID, "Unknown EPL subcommand. Available subcommands: table, next")
+	}
+}
 
 func init() {
 	module := &commands.ModuleInfo{
@@ -17,17 +40,10 @@ func init() {
 		},
 		Commands: []commands.CommandInfo{
 			{
-				Name:        "epl table",
-				Aliases:     []string{"epltable"},
-				Description: "Shows the current Premier League table",
-				Usage:       ".epl table",
-				Category:    "Sports",
-			},
-			{
-				Name:        "epl next",
-				Aliases:     []string{"nextmatch"},
-				Description: "Shows upcoming Premier League fixtures. Use with a club name to see their next match.",
-				Usage:       ".epl next [club_name]",
+				Name:        "epl",
+				Aliases:     []string{},
+				Description: "English Premier League commands. Use .epl <subcommand>",
+				Usage:       ".epl <subcommand>",
 				Category:    "Sports",
 			},
 		},
@@ -37,6 +53,5 @@ func init() {
 	commands.RegisterModule(module)
 
 	// Register command handlers
-	commands.RegisterCommand("epl table", EPLTable, "epltable")
-	commands.RegisterCommand("epl next", NextMatch, "nextmatch")
+	commands.RegisterCommand("epl", EPL)
 }

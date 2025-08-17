@@ -1,10 +1,43 @@
 package f1
 
 import (
+	"strings"
+
+	"DiscordBot/bot"
 	"DiscordBot/commands"
 
 	"github.com/bwmarrin/discordgo"
 )
+
+// F1 handles all F1 subcommands
+func F1(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
+	if len(args) < 2 {
+		s.ChannelMessageSend(m.ChannelID, "Usage: .f1 <subcommand>\nAvailable subcommands: results, standings, wdc, wcc, quali, nextevent, next, sub")
+		return
+	}
+
+	subcommand := strings.ToLower(args[1])
+	switch subcommand {
+	case "results", "f1results":
+		F1Results(b, s, m, args[1:])
+	case "standings", "f1standings":
+		F1Standings(b, s, m, args[1:])
+	case "wdc", "f1wdc":
+		F1WDC(b, s, m, args[1:])
+	case "wcc", "f1wcc":
+		F1WCC(b, s, m, args[1:])
+	case "quali", "qualiresults":
+		QualiResults(b, s, m, args[1:])
+	case "nextevent":
+		F1NextEvent(b, s, m, args[1:])
+	case "next", "nextf1session":
+		NextF1Session(b, s, m, args[1:])
+	case "sub", "f1sub":
+		F1Subscribe(b, s, m, args[1:])
+	default:
+		s.ChannelMessageSend(m.ChannelID, "Unknown F1 subcommand. Available subcommands: results, standings, wdc, wcc, quali, nextevent, next, sub")
+	}
+}
 
 func init() {
 	module := &commands.ModuleInfo{
@@ -21,59 +54,10 @@ func init() {
 		},
 		Commands: []commands.CommandInfo{
 			{
-				Name:        "f1 results",
-				Aliases:     []string{"f1results"},
-				Description: "Shows the latest F1 race results",
-				Usage:       ".f1 results",
-				Category:    "Sports",
-			},
-			{
-				Name:        "f1 standings",
-				Aliases:     []string{"f1standings"},
-				Description: "Shows the current F1 championship standings",
-				Usage:       ".f1 standings",
-				Category:    "Sports",
-			},
-			{
-				Name:        "f1 wdc",
-				Aliases:     []string{"f1wdc"},
-				Description: "Shows the F1 Driver's Championship standings",
-				Usage:       ".f1 wdc",
-				Category:    "Sports",
-			},
-			{
-				Name:        "f1 wcc",
-				Aliases:     []string{"f1wcc"},
-				Description: "Shows the F1 Constructor's Championship standings",
-				Usage:       ".f1 wcc",
-				Category:    "Sports",
-			},
-			{
-				Name:        "f1 quali",
-				Aliases:     []string{"qualiresults"},
-				Description: "Shows the latest F1 qualifying results",
-				Usage:       ".f1 quali",
-				Category:    "Sports",
-			},
-			{
-				Name:        "f1 nextevent",
+				Name:        "f1",
 				Aliases:     []string{},
-				Description: "Shows information about the next F1 event",
-				Usage:       ".f1 nextevent",
-				Category:    "Sports",
-			},
-			{
-				Name:        "f1 next",
-				Aliases:     []string{"nextf1session"},
-				Description: "Shows information about the next F1 session",
-				Usage:       ".f1 next",
-				Category:    "Sports",
-			},
-			{
-				Name:        "f1 sub",
-				Aliases:     []string{"f1sub"},
-				Description: "Subscribe/unsubscribe to F1 notifications",
-				Usage:       ".f1 sub",
+				Description: "Formula 1 commands. Use .f1 <subcommand>",
+				Usage:       ".f1 <subcommand>",
 				Category:    "Sports",
 			},
 		},
@@ -90,12 +74,5 @@ func init() {
 	commands.RegisterModule(module)
 
 	// Register command handlers
-	commands.RegisterCommand("f1 results", F1Results, "f1results")
-	commands.RegisterCommand("f1 standings", F1Standings, "f1standings")
-	commands.RegisterCommand("f1 wdc", F1WDC, "f1wdc")
-	commands.RegisterCommand("f1 wcc", F1WCC, "f1wcc")
-	commands.RegisterCommand("f1 quali", QualiResults, "qualiresults")
-	commands.RegisterCommand("f1 nextevent", F1NextEvent)
-	commands.RegisterCommand("f1 next", NextF1Session, "nextf1session")
-	commands.RegisterCommand("f1 sub", F1Subscribe, "f1sub")
+	commands.RegisterCommand("f1", F1)
 }

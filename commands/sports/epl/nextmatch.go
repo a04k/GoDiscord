@@ -48,14 +48,25 @@ func showUpcomingFixtures(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 
 	// Find the current or next gameweek
 	currentGW := 0
+	
+	// First, try to find an event that has started but not finished
 	for _, event := range events {
-		// Check if the event has started but not finished
-		if !event.Finished && event.ID > currentGW {
-			currentGW = event.ID
+		if !event.Finished {
+			// Check if this event has already started (based on date)
+			eventDate, err := time.Parse("2006-01-02T15:04:05Z", event.DeadlineTime)
+			if err != nil {
+				continue
+			}
+			
+			// If the deadline has passed, this is likely the current GW
+			if eventDate.Before(time.Now()) {
+				currentGW = event.ID
+				break
+			}
 		}
 	}
-
-	// If no current GW found, use the first upcoming GW
+	
+	// If no current GW found, find the first unfinished GW
 	if currentGW == 0 {
 		for _, event := range events {
 			if !event.Finished {
@@ -64,8 +75,8 @@ func showUpcomingFixtures(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 			}
 		}
 	}
-
-	// If still no GW found, default to showing all fixtures
+	
+	// If still no GW found, default to the first GW
 	if currentGW == 0 {
 		currentGW = 1
 	}
@@ -262,9 +273,10 @@ type FPLFixture struct {
 }
 
 type FPLEvent struct {
-	ID      int    `json:"id"`
-	Name    string `json:"name"`
-	Finished bool  `json:"finished"`
+	ID           int    `json:"id"`
+	Name         string `json:"name"`
+	Finished     bool   `json:"finished"`
+	DeadlineTime string `json:"deadline_time"`
 }
 
 type FPLTeam struct {

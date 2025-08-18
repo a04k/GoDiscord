@@ -27,34 +27,52 @@ type Session struct {
 
 // TeamColors maps constructor names to their Discord color codes
 var TeamColors = map[string]int{
-	"Red Bull":       0x1E5BC6,
-	"Ferrari":        0xDC0000,
-	"Mercedes":       0x00D2BE,
-	"McLaren":        0xFF8700,
-	"Aston Martin":   0x006F62,
-	"Alpine":         0x0090FF,
-	"Williams":       0x005AFF,
-	"AlphaTauri":     0x2B4562,
-	"Haas F1 Team":   0xFFFFFF,
-	"Alfa Romeo":     0x960000,
-	"RB F1 Team":     0x6600FF,
-	"Sauber":         0x006400,
+    "Oracle Red Bull Racing":       0x4781D7, 
+    "Scuderia Ferrari HP":          0xED1131, 
+    "Mercedes-AMG Petronas F1 Team":0x00D7B6, 
+    "McLaren":                      0xF47600, 
+    "Aston Martin":                 0x229971, 
+    "Alpine":                       0x00A1E8, 
+    "Atlassian Williams Racing":   0x1868DB, 
+    "Visa CashApp Racing Bulls":   0x6C98FF, 
+    "Moneygram Haas F1 Team":      0x9C9FA2, 
+    "Kick Sauber":                  0x01C00E,
 }
+
 
 // DriverInfo maps driver names/codes to constructor names for color coding
 var DriverInfo = map[string]string{
-	"VER": "Red Bull", "PER": "Red Bull",
-	"LEC": "Ferrari", "SAI": "Ferrari",
-	"HAM": "Mercedes", "RUS": "Mercedes",
-	"NOR": "McLaren", "PIA": "McLaren",
-	"ALO": "Aston Martin", "STR": "Aston Martin",
-	"OCO": "Alpine", "GAS": "Alpine",
-	"ALB": "Williams", "SAR": "Williams",
-	"TSU": "RB F1 Team", "LAW": "RB F1 Team",
-	"MAG": "Haas F1 Team", "HUL": "Haas F1 Team",
-	"BOT": "Alfa Romeo", "ZHO": "Alfa Romeo",
-	"RIC": "RB F1 Team", "COL": "RB F1 Team",
+    "VER": "Red Bull Racing",        // Max Verstappen – Red Bull Racing :contentReference[oaicite:0]{index=0}
+    "TSU": "Red Bull Racing",        // Yuki Tsunoda – promoted mid-season to Red Bull Racing :contentReference[oaicite:1]{index=1}
+
+    "LEC": "Ferrari",                // Charles Leclerc – Ferrari :contentReference[oaicite:2]{index=2}
+    "HAM": "Ferrari",                // Lewis Hamilton – moved from Mercedes to Ferrari for 2025 :contentReference[oaicite:3]{index=3}
+
+    "NOR": "McLaren",                // Lando Norris – McLaren :contentReference[oaicite:4]{index=4}
+    "PIA": "McLaren",                // Oscar Piastri – McLaren :contentReference[oaicite:5]{index=5}
+
+    "RUS": "Mercedes",               // George Russell – Mercedes :contentReference[oaicite:6]{index=6}
+    "ANT": "Mercedes",               // Andrea Kimi Antonelli – promoted to Mercedes :contentReference[oaicite:7]{index=7}
+
+    "ALO": "Aston Martin",           // Fernando Alonso – Aston Martin :contentReference[oaicite:8]{index=8}
+    "STR": "Aston Martin",           // Lance Stroll – Aston Martin :contentReference[oaicite:9]{index=9}
+
+    "GAS": "Alpine",                 // Pierre Gasly – Alpine :contentReference[oaicite:10]{index=10}
+    "DOO": "Alpine",                 // Jack Doohan – Alpine :contentReference[oaicite:11]{index=11}
+
+    "HUL": "Sauber",                 // Nico Hülkenberg – Sauber :contentReference[oaicite:12]{index=12}
+    "BOR": "Sauber",                 // Gabriel Bortoleto – Sauber :contentReference[oaicite:13]{index=13}
+
+    "BEA": "Haas",                   // Oliver Bearman – Haas :contentReference[oaicite:14]{index=14}
+    "OCO": "Haas",                   // Esteban Ocon – Haas :contentReference[oaicite:15]{index=15}
+
+    "ALB": "Williams",               // Alexander Albon – Williams :contentReference[oaicite:16]{index=16}
+    "SAI": "Williams",               // Carlos Sainz Jr. – Williams :contentReference[oaicite:17]{index=17}
+
+    "LAW": "Racing Bulls",           // Liam Lawson – Racing Bulls (junior Red Bull team) :contentReference[oaicite:18]{index=18}
+    "HAD": "Racing Bulls",           // Isack Hadjar – Racing Bulls :contentReference[oaicite:19]{index=19}
 }
+
 
 // DriverStandingsResponse represents the structure of the Ergast API response for driver standings
 type DriverStandingsResponse struct {

@@ -158,14 +158,7 @@ func init() {
 				Category:    "Sports",
 			},
 		},
-		SlashCommands: []commands.SlashCommandInfo{
-			{
-				Name:        "f1",
-				Description: "Subscribe/unsubscribe to F1 notifications",
-				Options:     []*discordgo.ApplicationCommandOption{},
-				Handler:     F1SubscriptionToggle,
-			},
-		},
+		SlashCommands: []commands.SlashCommandInfo{},
 	}
 
 	commands.RegisterModule(module)

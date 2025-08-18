@@ -102,7 +102,7 @@ func FPLStandings(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, 
 }
 
 func createFPLStandingsPages(data FPLLeague) []*discordgo.MessageEmbed {
-	const itemsPerPage = 15
+	const itemsPerPage = 10
 	const maxItems = 100
 	totalItems := len(data.Standings.Results)
 	

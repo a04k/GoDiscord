@@ -14,6 +14,8 @@ type FPLFixture struct {
 	ID          int    `json:"id"`
 	TeamH       int    `json:"team_h"`
 	TeamA       int    `json:"team_a"`
+	TeamHScore  *int   `json:"team_h_score"`
+	TeamAScore  *int   `json:"team_a_score"`
 	KickoffTime string `json:"kickoff_time"`
 	Event       int    `json:"event"`
 	Finished    bool   `json:"finished"`
@@ -160,10 +162,15 @@ func createResultsPages(results []FPLFixture, teamNameMap, shortNameMap map[int]
 			homeTeam := shortNameMap[fixture.TeamH]
 			awayTeam := shortNameMap[fixture.TeamA]
 			
-			// Note: The FPL API doesn't provide scores in the fixtures endpoint
-			// We would need to use a different API or data source for actual scores
-			// For now, we'll just show the match details
-			result := "Finished"
+			// Format the result with actual scores if available
+			var result string
+			if fixture.Finished && fixture.TeamHScore != nil && fixture.TeamAScore != nil {
+				result = fmt.Sprintf("%d - %d", *fixture.TeamHScore, *fixture.TeamAScore)
+			} else if fixture.Finished {
+				result = "Finished"
+			} else {
+				result = "Not played yet"
+			}
 			
 			embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
 				Name: fmt.Sprintf("GW%d: %s vs %s", fixture.Event, homeTeam, awayTeam),

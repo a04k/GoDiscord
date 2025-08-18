@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -9,32 +10,25 @@ import (
 )
 
 func handleF1ResultsButton(b *bot.Bot, s *discordgo.Session, i *discordgo.InteractionCreate) {
-	// Extract session type from custom ID
-	// Format: f1_results_{session_type}_{event_name}
+	// Format: f1_results_{session_type}_{round}
 	parts := strings.Split(i.MessageComponentData().CustomID, "_")
-	if len(parts) < 4 {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Invalid button interaction",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
-		return
+	if len(parts) != 4 {
+		return // Invalid ID format, ignore.
 	}
 
 	sessionType := parts[2]
-	// eventName := parts[3] // Not used in this implementation
-
-	// Acknowledge the interaction
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-	})
+	round, err := strconv.Atoi(parts[3])
 	if err != nil {
-		return
+		return // Invalid round number, ignore.
 	}
 
-	// Create a mock MessageCreate for the command handler
+	// Acknowledge the interaction immediately to prevent timeout.
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	})
+
+	// Create a mock MessageCreate for the command handlers.
+	// This is a bit of a workaround to reuse the existing command structure.
 	m := &discordgo.MessageCreate{
 		Message: &discordgo.Message{
 			ChannelID: i.ChannelID,
@@ -42,23 +36,18 @@ func handleF1ResultsButton(b *bot.Bot, s *discordgo.Session, i *discordgo.Intera
 		},
 	}
 
-	// Call the appropriate results function based on session type
+	// Call the appropriate results function based on session type.
 	switch sessionType {
-	case "free_practice_1", "fp1":
-		f1.GetPracticeResults(b, s, m, "fp1", "")
-	case "free_practice_2", "fp2":
-		f1.GetPracticeResults(b, s, m, "fp2", "")
-	case "free_practice_3", "fp3":
-		f1.GetPracticeResults(b, s, m, "fp3", "")
-	case "qualifying", "quali":
-		f1.GetQualifyingResults(b, s, m, "")
-	case "sprint_qualifying", "sprintquali":
-		f1.GetSprintQualifyingResults(b, s, m, "")
+	case "qualifying":
+		f1.GetQualifyingResults(b, s, m, round)
 	case "sprint":
-		f1.GetSprintResults(b, s, m, "")
+		f1.GetSprintResults(b, s, m, round)
 	case "race":
-		f1.GetRaceResults(b, s, m, "")
+		f1.GetRaceResults(b, s, m, round)
 	default:
-		f1.GetRaceResults(b, s, m, "")
+		// For unsupported sessions like practice, we can send a follow-up message.
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content: "Results for this session type are not available.",
+		})
 	}
 }

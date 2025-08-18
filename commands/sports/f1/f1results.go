@@ -11,7 +11,10 @@ import (
 )
 
 func F1Results(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
+	log.Printf("F1Results called with args: %v", args)
+	
 	if len(args) == 1 {
+		log.Printf("No additional arguments, showing session selection")
 		ShowSessionSelection(b, s, m)
 		return
 	}
@@ -26,6 +29,7 @@ func F1Results(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, arg
 	// .f1results sprint -> sessionType: "sprint", raceQuery: "" (latest)
 	if len(args) > 1 {
 		firstArg := strings.ToLower(args[1])
+		log.Printf("First arg: %s, isSessionType: %v", firstArg, isSessionType(firstArg))
 		if isSessionType(firstArg) {
 			sessionType = firstArg
 			if len(args) > 2 {
@@ -35,10 +39,13 @@ func F1Results(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, arg
 			raceQuery = strings.ToLower(strings.Join(args[1:], " "))
 		}
 	}
+	
+	log.Printf("Session type: %s, Race query: %s", sessionType, raceQuery)
 
 	// Find the round for the given query
 	round := 0
 	if raceQuery != "" {
+		log.Printf("Fetching F1 events for query: %s", raceQuery)
 		events, err := FetchF1Events()
 		if err != nil {
 			log.Printf("Error fetching F1 events: %v", err)
@@ -47,20 +54,27 @@ func F1Results(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, arg
 		}
 		event := findEventByQuery(events, raceQuery)
 		if event == nil {
+			log.Printf("No F1 event found matching '%s'", raceQuery)
 			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("No F1 event found matching '%s'", raceQuery))
 			return
 		}
+		log.Printf("Found event: %s", event.Name)
 		round = findEventRound(events, *event)
+		log.Printf("Event round: %d", round)
 	}
 
 	switch sessionType {
 	case "quali", "qualifying":
+		log.Printf("Getting qualifying results for round %d", round)
 		GetQualifyingResults(b, s, m, round)
 	case "sprint":
+		log.Printf("Getting sprint results for round %d", round)
 		GetSprintResults(b, s, m, round)
 	case "race":
+		log.Printf("Getting race results for round %d", round)
 		GetRaceResults(b, s, m, round)
 	default:
+		log.Printf("Unsupported session type: %s", sessionType)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Session type '%s' is not supported or results are not available.", sessionType))
 	}
 }

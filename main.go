@@ -2,13 +2,15 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 	"strings"
+	"sync"
 
 	"DiscordBot/bot"
 	"DiscordBot/commands"
-
+	"DiscordBot/commands/help"
 	"DiscordBot/utils"
 
 	// Import modules to register them
@@ -19,17 +21,17 @@ import (
 	_ "DiscordBot/commands/egypt/telecom"
 	_ "DiscordBot/commands/finance"
 	_ "DiscordBot/commands/general"
-	"DiscordBot/commands/help"
-	_ "DiscordBot/commands/moderation"
-	_ "DiscordBot/commands/roles"
-
 	_ "DiscordBot/commands/sports/epl"
-	"DiscordBot/commands/sports/f1"
+	_ "DiscordBot/commands/sports/f1"
 	_ "DiscordBot/commands/sports/fpl"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
 )
+
+// Global rate limiter
+var rateLimiter = utils.NewRateLimiter()
+var rateLimitMutex = sync.Mutex{}
 
 func main() {
 	godotenv.Load()
@@ -52,7 +54,7 @@ func main() {
 				cmd := strings.ToLower(args[0][1:])
 				// Add commands that are allowed in DMs
 				allowedDMCommands := map[string]bool{
-					"f1": true, "epl": true,
+					"f1": true, "fpl": true, "epl": true,
 				}
 				if !allowedDMCommands[cmd] {
 					return // Ignore commands in DMs that aren't explicitly allowed
@@ -76,6 +78,18 @@ func main() {
 		cmdName, ok := commands.CommandAliases[cmd]
 		if !ok {
 			cmdName = cmd
+		}
+
+		// Check rate limit
+		rateLimitMutex.Lock()
+		allowed := rateLimiter.Allow(m.Author.ID, cmdName)
+		rateLimitMutex.Unlock()
+		
+		if !allowed {
+			retryAfter := rateLimiter.GetRetryAfter(m.Author.ID, cmdName)
+			s.ChannelMessageSend(m.ChannelID, 
+				fmt.Sprintf("You're doing that too fast! Please wait %d seconds before trying again.", retryAfter))
+			return
 		}
 
 		// Check if the command is disabled in this guild
@@ -133,8 +147,8 @@ func main() {
 	commands.RegisterAllSlashCommands(bot.Client, "")
 
 	// Start F1 Notifier
-	f1Notifier := f1.NewF1Notifier(bot.Client, bot.Db)
-	go f1Notifier.Start()
+	// f1Notifier := f1.NewF1Notifier(bot.Client, bot.Db)
+	// go f1Notifier.Start()
 
 	// Start Reminder Service
 	reminderService := utils.NewReminderService(bot.Db, bot.Client)

@@ -12,7 +12,7 @@ import (
 )
 
 func F1Results(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	// If no additional arguments, show session selection buttons
+	// If no additional arguments, show session selection buttons for the most recent event
 	if len(args) <= 1 {
 		ShowSessionSelection(b, s, m)
 		return
@@ -23,16 +23,23 @@ func F1Results(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, arg
 	raceQuery := ""
 	
 	if len(args) >= 2 {
-		sessionType = strings.ToLower(args[1])
-	}
-	
-	if len(args) >= 3 {
-		raceQuery = strings.ToLower(strings.Join(args[2:], " "))
-	}
-	
-	// If race query is provided but no session type, default to "race"
-	if raceQuery != "" && sessionType == "" {
-		sessionType = "race"
+		// Check if the second argument is a session type
+		possibleSession := strings.ToLower(args[1])
+		if possibleSession == "quali" || possibleSession == "qualifying" || 
+		   possibleSession == "fp1" || possibleSession == "fp2" || possibleSession == "fp3" || 
+		   possibleSession == "practice" || possibleSession == "sprint" || 
+		   possibleSession == "sprintquali" || possibleSession == "sprintqualifying" || 
+		   possibleSession == "race" {
+			sessionType = possibleSession
+			// Check if there's a race query
+			if len(args) >= 3 {
+				raceQuery = strings.ToLower(strings.Join(args[2:], " "))
+			}
+		} else {
+			// Second argument is the race query, default to race session
+			sessionType = "race"
+			raceQuery = strings.ToLower(strings.Join(args[1:], " "))
+		}
 	}
 	
 	// Handle different session types
@@ -88,6 +95,11 @@ func ShowSessionSelection(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 		if currentOrLastEvent == nil {
 			currentOrLastEvent = &event
 		}
+	}
+
+	// If we still haven't found an event, use the first one
+	if currentOrLastEvent == nil && len(events) > 0 {
+		currentOrLastEvent = &events[len(events)-1]
 	}
 
 	if currentOrLastEvent == nil {
@@ -368,11 +380,38 @@ func GetQualifyingResults(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 	var targetEvent *Event
 	for _, event := range events {
 		// Check if the query matches the event name, location, or circuit
-		if strings.Contains(strings.ToLower(event.Name), raceQuery) ||
-			strings.Contains(strings.ToLower(event.Location), raceQuery) ||
-			strings.Contains(strings.ToLower(event.Circuit), raceQuery) {
+		eventNameLower := strings.ToLower(event.Name)
+		eventLocationLower := strings.ToLower(event.Location)
+		eventCircuitLower := strings.ToLower(event.Circuit)
+		raceQueryLower := strings.ToLower(raceQuery)
+		
+		if strings.Contains(eventNameLower, raceQueryLower) ||
+			strings.Contains(eventLocationLower, raceQueryLower) ||
+			strings.Contains(eventCircuitLower, raceQueryLower) ||
+			// Special case for common names
+			strings.Contains(eventNameLower, "grand prix") && strings.Contains(raceQueryLower, "gp") {
 			targetEvent = &event
 			break
+		}
+	}
+
+	// Try alternative matching for common names
+	if targetEvent == nil {
+		for _, event := range events {
+			eventNameLower := strings.ToLower(event.Name)
+			raceQueryLower := strings.ToLower(raceQuery)
+			
+			// Handle cases like "spa" matching "Belgian Grand Prix"
+			if (strings.Contains(raceQueryLower, "spa") && strings.Contains(eventNameLower, "belgian")) ||
+				(strings.Contains(raceQueryLower, "hungary") && strings.Contains(eventNameLower, "hungarian")) ||
+				(strings.Contains(raceQueryLower, "hungaroring") && strings.Contains(eventNameLower, "hungarian")) ||
+				(strings.Contains(raceQueryLower, "budapest") && strings.Contains(eventNameLower, "hungarian")) ||
+				(strings.Contains(raceQueryLower, "monaco") && strings.Contains(eventNameLower, "monaco")) ||
+				(strings.Contains(raceQueryLower, "silverstone") && strings.Contains(eventNameLower, "british")) ||
+				(strings.Contains(raceQueryLower, "monza") && strings.Contains(eventNameLower, "italian")) {
+				targetEvent = &event
+				break
+			}
 		}
 	}
 
@@ -498,7 +537,7 @@ func displayQualifyingResults(s *discordgo.Session, m *discordgo.MessageCreate, 
 			q3Gap = "—"
 		}
 		
-		resultsStr += fmt.Sprintf("`%-2s` %-20s %-10s %-10s %-10s %-10s\n",
+		resultsStr += fmt.Sprintf("`%-2s` %-20s %-4s %-10s %-10s %-10s %-10s\n",
 			result.Position,
 			TruncateString(driverName, 20),
 			TruncateString(result.Driver.Code, 4),

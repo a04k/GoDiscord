@@ -224,6 +224,7 @@ func GetSprintResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCrea
 }
 
 func displayRaceResults(s *discordgo.Session, channelID string, race RaceResultsResponse_MRDatum_RaceTable_Race) {
+	log.Printf("displayRaceResults called for: %s", race.RaceName)
 	var resultsStr strings.Builder
 	resultsStr.WriteString("```\nPos Driver               Team       Laps   Time/Status   Pts\n")
 
@@ -238,6 +239,8 @@ func displayRaceResults(s *discordgo.Session, channelID string, race RaceResults
 		resultsStr.WriteString(line + "\n")
 	}
 	resultsStr.WriteString("```")
+	
+	log.Printf("Results string: %s", resultsStr.String())
 
 	color := 0xFF0000 // Default F1 red
 	if len(race.Results) > 0 {
@@ -256,8 +259,12 @@ func displayRaceResults(s *discordgo.Session, channelID string, race RaceResults
 		},
 		Footer: &discordgo.MessageEmbedFooter{Text: "Formula 1 Results"},
 	}
-
-	s.ChannelMessageSendEmbed(channelID, embed)
+	
+	log.Printf("Sending embed to channel: %s", channelID)
+	_, err := s.ChannelMessageSendEmbed(channelID, embed)
+	if err != nil {
+		log.Printf("Error sending race results embed: %v", err)
+	}
 }
 
 func displayQualifyingResults(s *discordgo.Session, channelID string, race QualifyingResponse_MRDatum_RaceTable_Race) {

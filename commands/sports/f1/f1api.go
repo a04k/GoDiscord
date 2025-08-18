@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-const ergastAPI = "https://ergast.com/api/f1/current"
+const ergastAPI = "https://api.jolpi.ca/ergast/f1/current"
 
 // Event represents a single F1 event from the schedule.
 type Event struct {

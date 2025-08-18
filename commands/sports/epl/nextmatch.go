@@ -84,9 +84,24 @@ func showUpcomingFixtures(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 	}
 
 	count := 0
+	// Get current time for comparison
+	now := time.Now().UTC()
+	
 	for _, match := range fixtures {
 		// Only show fixtures for the current gameweek
 		if match.Event != currentGW {
+			continue
+		}
+
+		// Parse match time
+		matchTime, err := time.Parse("2006-01-02T15:04:05Z", match.KickoffTime)
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Error parsing match time. Please try again later.")
+			return
+		}
+		
+		// Only show matches that haven't started yet
+		if matchTime.Before(now) {
 			continue
 		}
 
@@ -94,11 +109,6 @@ func showUpcomingFixtures(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 			break
 		}
 
-		matchTime, err := time.Parse("2006-01-02T15:04:05Z", match.KickoffTime)
-		if err != nil {
-			s.ChannelMessageSend(m.ChannelID, "Error parsing match time. Please try again later.")
-			return
-		}
 		// Convert to Unix timestamp for Discord's timestamp formatting
 		unixTimestamp := matchTime.Unix()
 		timeStr := fmt.Sprintf("<t:%d:F>", unixTimestamp) // F = "Friday, 1 January 2021 12:00"
@@ -215,91 +225,4 @@ func showClubNextMatch(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCre
 	}
 
 	s.ChannelMessageSendEmbed(m.ChannelID, embed)
-}
-
-func fetchFixtures() ([]FPLFixture, error) {
-	url := "https://fantasy.premierleague.com/api/fixtures/"
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP error: %d", resp.StatusCode)
-	}
-
-	var data []FPLFixture
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
-func getEventsData() ([]FPLEvent, error) {
-	url := "https://fantasy.premierleague.com/api/bootstrap-static/"
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP error: %d", resp.StatusCode)
-	}
-
-	var data FPLBootstrapStatic
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, err
-	}
-
-	return data.Events, nil
-}
-
-func getTeamsData() ([]FPLTeam, error) {
-	url := "https://fantasy.premierleague.com/api/bootstrap-static/"
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP error: %d", resp.StatusCode)
-	}
-
-	var data FPLBootstrapStatic
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, err
-	}
-
-	return data.Teams, nil
-}
-
-type FPLFixture struct {
-	ID          int    `json:"id"`
-	TeamH       int    `json:"team_h"`
-	TeamA       int    `json:"team_a"`
-	KickoffTime string `json:"kickoff_time"`
-	Event       int    `json:"event"`
-	Finished    bool   `json:"finished"`
-}
-
-type FPLEvent struct {
-	ID           int    `json:"id"`
-	Name         string `json:"name"`
-	Finished     bool   `json:"finished"`
-	DeadlineTime string `json:"deadline_time"`
-}
-
-type FPLTeam struct {
-	ID        int    `json:"id"`
-	Name      string `json:"name"`
-	ShortName string `json:"short_name"`
-}
-
-type FPLBootstrapStatic struct {
-	Teams  []FPLTeam  `json:"teams"`
-	Events []FPLEvent `json:"events"`
 }

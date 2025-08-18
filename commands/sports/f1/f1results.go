@@ -74,6 +74,12 @@ func F1Results(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, arg
 	case "race":
 		log.Printf("Getting race results for round %d", round)
 		GetRaceResults(b, s, m, round)
+	case "fp1", "fp2", "fp3", "practice":
+		log.Printf("Getting practice results for round %d", round)
+		GetPracticeResults(b, s, m, sessionType, round)
+	case "sprintquali", "sprintqualifying":
+		log.Printf("Getting sprint qualifying results for round %d", round)
+		GetSprintQualifyingResults(b, s, m, round)
 	default:
 		log.Printf("Unsupported session type: %s", sessionType)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Session type '%s' is not supported or results are not available.", sessionType))
@@ -226,15 +232,22 @@ func GetSprintResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCrea
 
 func displayRaceResults(s *discordgo.Session, channelID string, race RaceResultsResponse_MRDatum_RaceTable_Race) {
 	log.Printf("displayRaceResults called for: %s", race.RaceName)
-	var resultsStr strings.Builder
-	resultsStr.WriteString("```\nPos Driver               Team       Laps   Time\n")
-
+	
+	// Create header
+	header := "```\nPos Driver            Team     Laps Time\n"
+	
 	// Find the winner's lap count to determine lapped drivers
 	winnerLaps := 0
 	if len(race.Results) > 0 {
-		winnerLaps, _ = strconv.Atoi(race.Results[0].Laps)
+		var err error
+		winnerLaps, err = strconv.Atoi(race.Results[0].Laps)
+		if err != nil {
+			log.Printf("Error converting winner laps: %v", err)
+		}
 	}
 
+	// Create the results string
+	var resultsStr strings.Builder
 	for _, result := range race.Results {
 		driverName := fmt.Sprintf("%s %s", result.Driver.GivenName, result.Driver.FamilyName)
 		laps, _ := strconv.Atoi(result.Laps)
@@ -256,12 +269,16 @@ func displayRaceResults(s *discordgo.Session, channelID string, race RaceResults
 			timeOrStatus = "Finished"
 		}
 
-		line := fmt.Sprintf("%-3s %-20s %-10s %-5s %-12s", result.Position, TruncateString(driverName, 18), TruncateString(result.Constructor.Name, 10), result.Laps, TruncateString(timeOrStatus, 12))
+		line := fmt.Sprintf("%-2s %-17s %-8s %-4s %-12s", result.Position, TruncateString(driverName, 17), TruncateString(result.Constructor.Name, 8), result.Laps, TruncateString(timeOrStatus, 12))
 		resultsStr.WriteString(line + "\n")
 	}
+	
 	resultsStr.WriteString("```")
 	
-	log.Printf("Results string: %s", resultsStr.String())
+	// Combine header and results
+	fullResults := header + resultsStr.String()
+	
+	log.Printf("Full results string length: %d", len(fullResults))
 
 	color := 0xFF0000 // Default F1 red
 	if len(race.Results) > 0 {
@@ -276,9 +293,50 @@ func displayRaceResults(s *discordgo.Session, channelID string, race RaceResults
 		Description: fmt.Sprintf("**%s**\n%s, %s", race.RaceName, race.Circuit.CircuitName, race.Circuit.Location.Country),
 		Color:       color,
 		Fields: []*discordgo.MessageEmbedField{
-			{Name: "Race Results", Value: resultsStr.String()},
+			{Name: "Race Results", Value: fullResults},
 		},
 		Footer: &discordgo.MessageEmbedFooter{Text: "Formula 1 Results"},
+	}
+	
+	// Check if the results exceed the Discord limit
+	if len(fullResults) > 1024 {
+		// Split into multiple fields
+		embed.Fields = []*discordgo.MessageEmbedField{}
+		
+		// Add header as first field
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:  "Race Results (1/2)",
+			Value: header,
+		})
+		
+		// Split results into chunks
+		lines := strings.Split(resultsStr.String(), "\n")
+		chunk := "```\n"
+		chunkCount := 1
+		
+		for _, line := range lines {
+			// Check if adding this line would exceed the limit
+			if len(chunk+line+"\n"+"```") > 1024 {
+				// Close current chunk and start new one
+				chunk += "```"
+				embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+					Name:  fmt.Sprintf("Race Results (%d/2)", chunkCount),
+					Value: chunk,
+				})
+				
+				chunk = "```\n" + line + "\n"
+				chunkCount++
+			} else {
+				chunk += line + "\n"
+			}
+		}
+		
+		// Add final chunk
+		chunk += "```"
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:  fmt.Sprintf("Race Results (%d/2)", chunkCount),
+			Value: chunk,
+		})
 	}
 	
 	log.Printf("Sending embed to channel: %s", channelID)
@@ -289,9 +347,11 @@ func displayRaceResults(s *discordgo.Session, channelID string, race RaceResults
 }
 
 func displayQualifyingResults(s *discordgo.Session, channelID string, race QualifyingResponse_MRDatum_RaceTable_Race) {
+	// Create header
+	header := "```\nPos Driver        Team     Q1      Q2      Q3\n"
+	
+	// Create the results string
 	var resultsStr strings.Builder
-	resultsStr.WriteString("```\nPos Driver           Team         Q1         Q2         Q3\n")
-
 	for _, result := range race.QualifyingResults {
 		driverName := fmt.Sprintf("%s. %s", string(result.Driver.GivenName[0]), result.Driver.FamilyName)
 		q1 := result.Q1
@@ -307,10 +367,14 @@ func displayQualifyingResults(s *discordgo.Session, channelID string, race Quali
 			q3 = "N/A"
 		}
 
-		line := fmt.Sprintf("%-3s %-16s %-12s %-10s %-10s %-10s", result.Position, TruncateString(driverName, 15), TruncateString(result.Constructor.Name, 11), q1, q2, q3)
+		line := fmt.Sprintf("%-2s %-13s %-8s %-7s %-7s %-7s", result.Position, TruncateString(driverName, 13), TruncateString(result.Constructor.Name, 8), TruncateString(q1, 7), TruncateString(q2, 7), TruncateString(q3, 7))
 		resultsStr.WriteString(line + "\n")
 	}
+	
 	resultsStr.WriteString("```")
+	
+	// Combine header and results
+	fullResults := header + resultsStr.String()
 
 	color := 0xFF0000 // Default F1 red
 	if len(race.QualifyingResults) > 0 {
@@ -325,17 +389,61 @@ func displayQualifyingResults(s *discordgo.Session, channelID string, race Quali
 		Description: fmt.Sprintf("**%s**\n%s, %s", race.RaceName, race.Circuit.CircuitName, race.Circuit.Location.Country),
 		Color:       color,
 		Fields: []*discordgo.MessageEmbedField{
-			{Name: "Qualifying Times", Value: resultsStr.String()},
+			{Name: "Qualifying Times", Value: fullResults},
 		},
 		Footer: &discordgo.MessageEmbedFooter{Text: "Formula 1 Qualifying Results"},
 	}
+	
+	// Check if the results exceed the Discord limit
+	if len(fullResults) > 1024 {
+		// Split into multiple fields
+		embed.Fields = []*discordgo.MessageEmbedField{}
+		
+		// Add header as first field
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:  "Qualifying Times (1/2)",
+			Value: header,
+		})
+		
+		// Split results into chunks
+		lines := strings.Split(resultsStr.String(), "\n")
+		chunk := "```\n"
+		chunkCount := 1
+		
+		for _, line := range lines {
+			// Check if adding this line would exceed the limit
+			if len(chunk+line+"\n"+"```") > 1024 {
+				// Close current chunk and start new one
+				chunk += "```"
+				embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+					Name:  fmt.Sprintf("Qualifying Times (%d/2)", chunkCount),
+					Value: chunk,
+				})
+				
+				chunk = "```\n" + line + "\n"
+				chunkCount++
+			} else {
+				chunk += line + "\n"
+			}
+		}
+		
+		// Add final chunk
+		chunk += "```"
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:  fmt.Sprintf("Qualifying Times (%d/2)", chunkCount),
+			Value: chunk,
+		})
+	}
+	
 	s.ChannelMessageSendEmbed(channelID, embed)
 }
 
 func displaySprintResults(s *discordgo.Session, channelID string, race SprintResultsResponse_MRDatum_RaceTable_Race) {
+	// Create header
+	header := "```\nPos Driver            Team     Laps Time\n"
+	
+	// Create the results string
 	var resultsStr strings.Builder
-	resultsStr.WriteString("```\nPos Driver               Team       Laps   Time\n")
-
 	for _, result := range race.SprintResults {
 		driverName := fmt.Sprintf("%s %s", result.Driver.GivenName, result.Driver.FamilyName)
 		timeOrStatus := result.Status
@@ -345,10 +453,14 @@ func displaySprintResults(s *discordgo.Session, channelID string, race SprintRes
 			timeOrStatus = "+1 Lap"
 		}
 
-		line := fmt.Sprintf("%-3s %-20s %-10s %-5s %-12s", result.Position, TruncateString(driverName, 18), TruncateString(result.Constructor.Name, 10), result.Laps, TruncateString(timeOrStatus, 12))
+		line := fmt.Sprintf("%-2s %-17s %-8s %-4s %-12s", result.Position, TruncateString(driverName, 17), TruncateString(result.Constructor.Name, 8), result.Laps, TruncateString(timeOrStatus, 12))
 		resultsStr.WriteString(line + "\n")
 	}
+	
 	resultsStr.WriteString("```")
+	
+	// Combine header and results
+	fullResults := header + resultsStr.String()
 
 	color := 0xFF0000 // Default F1 red
 	if len(race.SprintResults) > 0 {
@@ -363,10 +475,52 @@ func displaySprintResults(s *discordgo.Session, channelID string, race SprintRes
 		Description: fmt.Sprintf("**%s**\n%s, %s", race.RaceName, race.Circuit.CircuitName, race.Circuit.Location.Country),
 		Color:       color,
 		Fields: []*discordgo.MessageEmbedField{
-			{Name: "Sprint Race Results", Value: resultsStr.String()},
+			{Name: "Sprint Race Results", Value: fullResults},
 		},
 		Footer: &discordgo.MessageEmbedFooter{Text: "Formula 1 Sprint Race Results"},
 	}
+	
+	// Check if the results exceed the Discord limit
+	if len(fullResults) > 1024 {
+		// Split into multiple fields
+		embed.Fields = []*discordgo.MessageEmbedField{}
+		
+		// Add header as first field
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:  "Sprint Race Results (1/2)",
+			Value: header,
+		})
+		
+		// Split results into chunks
+		lines := strings.Split(resultsStr.String(), "\n")
+		chunk := "```\n"
+		chunkCount := 1
+		
+		for _, line := range lines {
+			// Check if adding this line would exceed the limit
+			if len(chunk+line+"\n"+"```") > 1024 {
+				// Close current chunk and start new one
+				chunk += "```"
+				embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+					Name:  fmt.Sprintf("Sprint Race Results (%d/2)", chunkCount),
+					Value: chunk,
+				})
+				
+				chunk = "```\n" + line + "\n"
+				chunkCount++
+			} else {
+				chunk += line + "\n"
+			}
+		}
+		
+		// Add final chunk
+		chunk += "```"
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:  fmt.Sprintf("Sprint Race Results (%d/2)", chunkCount),
+			Value: chunk,
+		})
+	}
+	
 	s.ChannelMessageSendEmbed(channelID, embed)
 }
 
@@ -465,5 +619,13 @@ func TruncateString(s string, maxLen int) string {
 		return s[:maxLen]
 	}
 	return s
+}
+
+func GetPracticeResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, sessionType string, round int) {
+	s.ChannelMessageSend(m.ChannelID, "Practice session results are not available through the Ergast API.")
+}
+
+func GetSprintQualifyingResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, round int) {
+	s.ChannelMessageSend(m.ChannelID, "Sprint qualifying results are not available through the Ergast API.")
 }
 

@@ -156,5 +156,3 @@ func ShowResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, a
 
 	help.GetPaginationManager().AddState(state)
 }
-
-

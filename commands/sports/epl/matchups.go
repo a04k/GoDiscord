@@ -1,9 +1,7 @@
 package epl
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"sort"
 	"strings"
 	"time"

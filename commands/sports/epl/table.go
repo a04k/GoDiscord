@@ -168,22 +168,3 @@ func createEPLTablePages(teams []struct {
 	
 	return pages
 }
-
-// FPL Bootstrap Data Structures
-type FPLBootstrap struct {
-	Teams []struct {
-		ID              int    `json:"id"`
-		Name            string `json:"name"`
-		ShortName       string `json:"short_name"`
-		Strength        int    `json:"strength"`
-		Position        int    `json:"-"`
-		Played          int    `json:"played"`
-		Win             int    `json:"win"`
-		Draw            int    `json:"draw"`
-		Loss            int    `json:"loss"`
-		Points          int    `json:"points"`
-		GoalsFor        int    `json:"goals_for"`
-		GoalsAgainst    int    `json:"goals_against"`
-		GoalDifference  int    `json:"goal_difference"`
-	} `json:"teams"`
-}

@@ -1,9 +1,7 @@
 package epl
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -20,26 +18,6 @@ func NextMatch(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, arg
 
 	clubName := strings.Join(args[1:], " ")
 	showClubNextMatch(b, s, m, clubName)
-}
-
-func fetchAllFixtures() ([]FPLFixture, error) {
-	url := "https://fantasy.premierleague.com/api/fixtures/"
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP error: %d", resp.StatusCode)
-	}
-
-	var data []FPLFixture
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, err
-	}
-
-	return data, nil
 }
 
 func showUpcomingFixtures(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate) {

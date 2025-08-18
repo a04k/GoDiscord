@@ -127,14 +127,18 @@ func main() {
 	})
 
 	bot.Client.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		if i.Type != discordgo.InteractionApplicationCommand {
-			return
-		}
-
-		// Use modular slash command system
-		commandName := i.ApplicationCommandData().Name
-		if handler, exists := commands.SlashCommandHandlers[commandName]; exists {
-			handler(bot, s, i)
+		switch i.Type {
+		case discordgo.InteractionApplicationCommand:
+			// Use modular slash command system
+			commandName := i.ApplicationCommandData().Name
+			if handler, exists := commands.SlashCommandHandlers[commandName]; exists {
+				handler(bot, s, i)
+			}
+		case discordgo.InteractionMessageComponent:
+			// Handle button interactions
+			if strings.HasPrefix(i.MessageComponentData().CustomID, "f1_results_") {
+				handleF1ResultsButton(bot, s, i)
+			}
 		}
 	})
 

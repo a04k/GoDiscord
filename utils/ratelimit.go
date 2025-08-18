@@ -51,8 +51,8 @@ func (rl *RateLimiter) Allow(userID, command string) bool {
 		return true
 	}
 	
-	// Check if user has exceeded the rate limit (5 commands per minute)
-	if limit.count >= 5 {
+	// Check if user has exceeded the rate limit (15 commands per minute)
+	if limit.count >= 15 {
 		return false
 	}
 	

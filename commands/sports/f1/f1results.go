@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -11,6 +12,127 @@ import (
 )
 
 func F1Results(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
+	// If no additional arguments, show session selection buttons
+	if len(args) <= 1 {
+		ShowSessionSelection(b, s, m)
+		return
+	}
+
+	// Parse arguments
+	sessionType := ""
+	raceQuery := ""
+	
+	if len(args) >= 2 {
+		sessionType = strings.ToLower(args[1])
+	}
+	
+	if len(args) >= 3 {
+		raceQuery = strings.ToLower(strings.Join(args[2:], " "))
+	}
+	
+	// If race query is provided but no session type, default to "race"
+	if raceQuery != "" && sessionType == "" {
+		sessionType = "race"
+	}
+	
+	// Handle different session types
+	switch sessionType {
+	case "quali", "qualifying":
+		GetQualifyingResults(b, s, m, raceQuery)
+	case "fp1", "fp2", "fp3", "practice":
+		GetPracticeResults(b, s, m, sessionType, raceQuery)
+	case "sprint":
+		GetSprintResults(b, s, m, raceQuery)
+	case "sprintquali", "sprintqualifying":
+		GetSprintQualifyingResults(b, s, m, raceQuery)
+	case "race":
+		GetRaceResults(b, s, m, raceQuery)
+	default:
+		// If an invalid session type is provided, show race results by default
+		GetRaceResults(b, s, m, raceQuery)
+	}
+}
+
+func ShowSessionSelection(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate) {
+	events, err := FetchF1Events()
+	if err != nil {
+		log.Printf("Error fetching F1 events: %v", err)
+		s.ChannelMessageSend(m.ChannelID, "Error fetching F1 schedule")
+		return
+	}
+
+	now := time.Now().UTC()
+	var currentOrLastEvent *Event
+
+	// Find the current or most recent event
+	for i := len(events) - 1; i >= 0; i-- {
+		event := events[i]
+		if len(event.Sessions) == 0 {
+			continue
+		}
+
+		// Get the last session of the event (typically Race)
+		lastSession := event.Sessions[len(event.Sessions)-1]
+		eventEndTime, err := time.Parse(time.RFC3339, lastSession.Date)
+		if err != nil {
+			continue
+		}
+
+		// If this event hasn't ended yet, it's the current event
+		if eventEndTime.After(now) {
+			currentOrLastEvent = &event
+			break
+		}
+
+		// If we haven't found a current event, use the most recent one that has ended
+		if currentOrLastEvent == nil {
+			currentOrLastEvent = &event
+		}
+	}
+
+	if currentOrLastEvent == nil {
+		s.ChannelMessageSend(m.ChannelID, "No F1 events found.")
+		return
+	}
+
+	// Create buttons for each session
+	var components []discordgo.MessageComponent
+	var sessionButtons []discordgo.MessageComponent
+
+	for _, session := range currentOrLastEvent.Sessions {
+		button := discordgo.Button{
+			Label: session.Name,
+			Style: discordgo.PrimaryButton,
+			CustomID: fmt.Sprintf("f1_results_%s_%s", 
+				strings.ToLower(strings.ReplaceAll(session.Name, " ", "_")), 
+				strings.ToLower(strings.ReplaceAll(currentOrLastEvent.Name, " ", "_"))),
+		}
+		sessionButtons = append(sessionButtons, button)
+	}
+
+	// Group buttons in rows of 5
+	for i := 0; i < len(sessionButtons); i += 5 {
+		end := i + 5
+		if end > len(sessionButtons) {
+			end = len(sessionButtons)
+		}
+		components = append(components, discordgo.ActionsRow{
+			Components: sessionButtons[i:end],
+		})
+	}
+
+	// Send message with buttons
+	s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
+		Embed: &discordgo.MessageEmbed{
+			Title:       fmt.Sprintf("F1 Results - %s", currentOrLastEvent.Name),
+			Description: fmt.Sprintf("Select a session to view results for %s", currentOrLastEvent.Name),
+			Color:       0xFF0000,
+		},
+		Components: components,
+	})
+}
+
+func GetRaceResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, raceQuery string) {
 	// Fetch real data from the Ergast API
 	apiResponse, err := FetchLatestRaceResults()
 	if err != nil {
@@ -198,4 +320,21 @@ func F1Results(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, arg
 	}
 
 	s.ChannelMessageSendEmbed(m.ChannelID, embed)
+}
+
+func GetQualifyingResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, raceQuery string) {
+	// For now, just send a placeholder message
+	s.ChannelMessageSend(m.ChannelID, "Qualifying results functionality to be implemented")
+}
+
+func GetPracticeResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, sessionType, raceQuery string) {
+	s.ChannelMessageSend(m.ChannelID, "Practice session results functionality to be implemented")
+}
+
+func GetSprintResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, raceQuery string) {
+	s.ChannelMessageSend(m.ChannelID, "Sprint results functionality to be implemented")
+}
+
+func GetSprintQualifyingResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, raceQuery string) {
+	s.ChannelMessageSend(m.ChannelID, "Sprint qualifying results functionality to be implemented")
 }

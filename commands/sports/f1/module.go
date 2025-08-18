@@ -19,12 +19,6 @@ type SubcommandInfo struct {
 
 // Define subcommands with their information
 var f1Subcommands = map[string]SubcommandInfo{
-	"results": {
-		Handler:     F1Results,
-		Description: "Shows the latest F1 race results",
-		Usage:       ".f1 results",
-		Aliases:     []string{"f1results"},
-	},
 	"standings": {
 		Handler:     F1Standings,
 		Description: "Shows the current F1 championship standings",
@@ -43,11 +37,11 @@ var f1Subcommands = map[string]SubcommandInfo{
 		Usage:       ".f1 wcc",
 		Aliases:     []string{"f1wcc"},
 	},
-	"quali": {
-		Handler:     QualiResults,
-		Description: "Shows the latest F1 qualifying results",
-		Usage:       ".f1 quali",
-		Aliases:     []string{"qualiresults"},
+	"results": {
+		Handler:     F1Results,
+		Description: "Shows F1 race results. Use with session type and/or race name",
+		Usage:       ".f1 results [quali|race|fp1|fp2|fp3|sprint|sprintquali] [country/trackname/venue]",
+		Aliases:     []string{"f1results"},
 	},
 	"nextevent": {
 		Handler:     F1NextEvent,

@@ -5,7 +5,8 @@ import (
 	"log"
 	"strings"
 	"time"
-
+	"strconv"
+	
 	"github.com/bwmarrin/discordgo"
 	"DiscordBot/bot"
 )
@@ -226,16 +227,36 @@ func GetSprintResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCrea
 func displayRaceResults(s *discordgo.Session, channelID string, race RaceResultsResponse_MRDatum_RaceTable_Race) {
 	log.Printf("displayRaceResults called for: %s", race.RaceName)
 	var resultsStr strings.Builder
-	resultsStr.WriteString("```\nPos Driver               Team       Laps   Time/Status   Pts\n")
+	resultsStr.WriteString("```\nPos Driver               Team       Laps   Time\n")
+
+	// Find the winner's lap count to determine lapped drivers
+	winnerLaps := 0
+	if len(race.Results) > 0 {
+		winnerLaps, _ = strconv.Atoi(race.Results[0].Laps)
+	}
 
 	for _, result := range race.Results {
 		driverName := fmt.Sprintf("%s %s", result.Driver.GivenName, result.Driver.FamilyName)
-		timeOrStatus := result.Status
+		laps, _ := strconv.Atoi(result.Laps)
+		
+		var timeOrStatus string
 		if result.Time.Time != "" {
 			timeOrStatus = result.Time.Time
+		} else if result.Status != "Finished" && result.Status != "" {
+			timeOrStatus = result.Status
+		} else if laps < winnerLaps {
+			// Driver is lapped
+			lapDiff := winnerLaps - laps
+			if lapDiff == 1 {
+				timeOrStatus = "+1 Lap"
+			} else {
+				timeOrStatus = fmt.Sprintf("+%d Laps", lapDiff)
+			}
+		} else {
+			timeOrStatus = "Finished"
 		}
 
-		line := fmt.Sprintf("%-3s %-20s %-10s %-5s %-12s %-3s", result.Position, TruncateString(driverName, 18), TruncateString(result.Constructor.Name, 10), result.Laps, TruncateString(timeOrStatus, 12), result.Points)
+		line := fmt.Sprintf("%-3s %-20s %-10s %-5s %-12s", result.Position, TruncateString(driverName, 18), TruncateString(result.Constructor.Name, 10), result.Laps, TruncateString(timeOrStatus, 12))
 		resultsStr.WriteString(line + "\n")
 	}
 	resultsStr.WriteString("```")
@@ -313,16 +334,18 @@ func displayQualifyingResults(s *discordgo.Session, channelID string, race Quali
 
 func displaySprintResults(s *discordgo.Session, channelID string, race SprintResultsResponse_MRDatum_RaceTable_Race) {
 	var resultsStr strings.Builder
-	resultsStr.WriteString("```\nPos Driver               Team       Laps   Time/Status   Pts\n")
+	resultsStr.WriteString("```\nPos Driver               Team       Laps   Time\n")
 
 	for _, result := range race.SprintResults {
 		driverName := fmt.Sprintf("%s %s", result.Driver.GivenName, result.Driver.FamilyName)
 		timeOrStatus := result.Status
 		if result.Time.Time != "" {
 			timeOrStatus = result.Time.Time
+		} else if result.Status == "Finished" || result.Status == "finished" {
+			timeOrStatus = "+1 Lap"
 		}
 
-		line := fmt.Sprintf("%-3s %-20s %-10s %-5s %-12s %-3s", result.Position, TruncateString(driverName, 18), TruncateString(result.Constructor.Name, 10), result.Laps, TruncateString(timeOrStatus, 12), result.Points)
+		line := fmt.Sprintf("%-3s %-20s %-10s %-5s %-12s", result.Position, TruncateString(driverName, 18), TruncateString(result.Constructor.Name, 10), result.Laps, TruncateString(timeOrStatus, 12))
 		resultsStr.WriteString(line + "\n")
 	}
 	resultsStr.WriteString("```")

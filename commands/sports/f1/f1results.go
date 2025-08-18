@@ -133,72 +133,87 @@ func ShowSessionSelection(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 }
 
 func GetRaceResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, raceQuery string) {
-	// Fetch real data from the Ergast API
-	apiResponse, err := FetchLatestRaceResults()
+	// If raceQuery is empty, get the latest race results
+	if raceQuery == "" {
+		// Fetch real data from the Ergast API
+		apiResponse, err := FetchLatestRaceResults()
+		if err != nil {
+			log.Printf("Error fetching F1 race results: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "Error fetching F1 race results")
+			return
+		}
+
+		// Check if we have race data
+		if len(apiResponse.MRData.RaceTable.Races) == 0 {
+			s.ChannelMessageSend(m.ChannelID, "No recent F1 race data available.")
+			return
+		}
+
+		race := apiResponse.MRData.RaceTable.Races[0]
+		displayRaceResults(s, m, race)
+		return
+	}
+
+	// If raceQuery is provided, find the specific race
+	events, err := FetchF1Events()
 	if err != nil {
-		log.Printf("Error fetching F1 race results: %v", err)
-		s.ChannelMessageSend(m.ChannelID, "Error fetching F1 race results")
+		log.Printf("Error fetching F1 events: %v", err)
+		s.ChannelMessageSend(m.ChannelID, "Error fetching F1 schedule")
+		return
+	}
+
+	// Find the event that matches the query
+	var targetEvent *Event
+	for _, event := range events {
+		// Check if the query matches the event name, location, or circuit
+		if strings.Contains(strings.ToLower(event.Name), raceQuery) ||
+			strings.Contains(strings.ToLower(event.Location), raceQuery) ||
+			strings.Contains(strings.ToLower(event.Circuit), raceQuery) {
+			targetEvent = &event
+			break
+		}
+	}
+
+	if targetEvent == nil {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("No F1 event found matching '%s'", raceQuery))
+		return
+	}
+
+	// Find the round number for this event
+	round := findEventRound(events, targetEvent)
+	if round == 0 {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Could not determine round for event '%s'", targetEvent.Name))
+		return
+	}
+
+	// Fetch results for the specific race
+	apiResponse, err := FetchRaceResultsByRound(round)
+	if err != nil {
+		log.Printf("Error fetching F1 race results for round %d: %v", round, err)
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Error fetching F1 race results for %s", targetEvent.Name))
 		return
 	}
 
 	// Check if we have race data
 	if len(apiResponse.MRData.RaceTable.Races) == 0 {
-		s.ChannelMessageSend(m.ChannelID, "No recent F1 race data available.")
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("No race data available for %s", targetEvent.Name))
 		return
 	}
 
 	race := apiResponse.MRData.RaceTable.Races[0]
+	displayRaceResults(s, m, race)
+}
 
-	// Get current time to find the last event from our schedule
-	events, err := FetchF1Events()
-	if err != nil {
-		log.Printf("Error fetching F1 events: %v", err)
-		// Continue with API data even if we can't get the schedule
-	}
-
-	now := time.Now().UTC()
-	var lastEvent *Event
-
-	// Find the most recent event that has finished
-	if events != nil {
-		for i := len(events) - 1; i >= 0; i-- {
-			event := events[i]
-			if len(event.Sessions) == 0 {
-				continue
-			}
-
-			// Get the last session of the event (typically Race)
-			lastSession := event.Sessions[len(event.Sessions)-1]
-			eventEndTime, err := time.Parse(time.RFC3339, lastSession.Date)
-			if err != nil {
-				continue
-			}
-
-			// Find the last event that has ended
-			if eventEndTime.Before(now) {
-				lastEvent = &event
-				break
-			}
-		}
-	}
-
-	title := fmt.Sprintf("Latest F1 Race: %s", race.RaceName)
-	if lastEvent != nil {
-		title = fmt.Sprintf("Latest F1 Race: %s", lastEvent.Name)
-	}
-
-	description := fmt.Sprintf("%s, %s", race.Circuit.CircuitName, race.Circuit.Location.Country)
-	if lastEvent != nil {
-		description = fmt.Sprintf("%s, %s", lastEvent.Location, lastEvent.Circuit)
-	}
-
+func displayRaceResults(s *discordgo.Session, m *discordgo.MessageCreate, race RaceResultsResponse_MRDatum_RaceTable_Race) {
 	// Calculate gaps to leader
 	var leaderTimeMillis int64
 	resultsWithGaps := make([]struct {
 		Position     string
 		DriverName   string
 		DriverCode   string
-		Constructor  string
+		Constructor  struct {
+			Name string
+		}
 		Laps         string
 		TimeOrStatus string
 		Points       string
@@ -215,7 +230,7 @@ func GetRaceResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate
 		resultsWithGaps[i].Position = result.Position
 		resultsWithGaps[i].DriverName = driverName
 		resultsWithGaps[i].DriverCode = result.Driver.Code
-		resultsWithGaps[i].Constructor = result.Constructor.Name
+		resultsWithGaps[i].Constructor.Name = result.Constructor.Name
 		resultsWithGaps[i].Laps = result.Laps
 		resultsWithGaps[i].TimeOrStatus = timeOrStatus
 		resultsWithGaps[i].Points = result.Points
@@ -252,7 +267,7 @@ func GetRaceResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate
 		resultsStr += fmt.Sprintf("`%-2s` %-20s %-10s %-4s %-12s %-3s\n",
 			result.Position,
 			TruncateString(result.DriverName, 20),
-			TruncateString(result.Constructor, 10),
+			TruncateString(result.Constructor.Name, 10),
 			result.Laps,
 			TruncateString(gapDisplay, 12),
 			result.Points)
@@ -297,8 +312,8 @@ func GetRaceResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate
 
 	// Create an embed with the event information
 	embed := &discordgo.MessageEmbed{
-		Title:       title,
-		Description: description,
+		Title:       fmt.Sprintf("🏁 %s Results", race.RaceName),
+		Description: fmt.Sprintf("%s, %s", race.Circuit.CircuitName, race.Circuit.Location.Country),
 		Color:       color,
 		Fields: []*discordgo.MessageEmbedField{
 			{
@@ -323,8 +338,203 @@ func GetRaceResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate
 }
 
 func GetQualifyingResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, raceQuery string) {
-	// For now, just send a placeholder message
-	s.ChannelMessageSend(m.ChannelID, "Qualifying results functionality to be implemented")
+	// If raceQuery is empty, get the latest qualifying results
+	if raceQuery == "" {
+		data, err := FetchQualifyingResults()
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Error fetching qualifying results")
+			return
+		}
+
+		if len(data.MRData.RaceTable.Races) == 0 {
+			s.ChannelMessageSend(m.ChannelID, "No qualifying results data available")
+			return
+		}
+
+		race := data.MRData.RaceTable.Races[0]
+		displayQualifyingResults(s, m, race)
+		return
+	}
+
+	// If raceQuery is provided, find the specific race
+	events, err := FetchF1Events()
+	if err != nil {
+		log.Printf("Error fetching F1 events: %v", err)
+		s.ChannelMessageSend(m.ChannelID, "Error fetching F1 schedule")
+		return
+	}
+
+	// Find the event that matches the query
+	var targetEvent *Event
+	for _, event := range events {
+		// Check if the query matches the event name, location, or circuit
+		if strings.Contains(strings.ToLower(event.Name), raceQuery) ||
+			strings.Contains(strings.ToLower(event.Location), raceQuery) ||
+			strings.Contains(strings.ToLower(event.Circuit), raceQuery) {
+			targetEvent = &event
+			break
+		}
+	}
+
+	if targetEvent == nil {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("No F1 event found matching '%s'", raceQuery))
+		return
+	}
+
+	// Find the round number for this event
+	round := findEventRound(events, targetEvent)
+	if round == 0 {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Could not determine round for event '%s'", targetEvent.Name))
+		return
+	}
+
+	// Fetch qualifying results for the specific race
+	apiResponse, err := FetchQualifyingResultsByRound(round)
+	if err != nil {
+		log.Printf("Error fetching F1 qualifying results for round %d: %v", round, err)
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Error fetching F1 qualifying results for %s", targetEvent.Name))
+		return
+	}
+
+	// Check if we have qualifying data
+	if len(apiResponse.MRData.RaceTable.Races) == 0 {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("No qualifying data available for %s", targetEvent.Name))
+		return
+	}
+
+	race := apiResponse.MRData.RaceTable.Races[0]
+	displayQualifyingResults(s, m, race)
+}
+
+func displayQualifyingResults(s *discordgo.Session, m *discordgo.MessageCreate, race QualifyingResponse_MRDatum_RaceTable_Race) {
+	// Calculate gaps to leader for each qualifying session
+	var q1LeaderTime, q2LeaderTime, q3LeaderTime float64
+	
+	// Parse Q1 times and find leader
+	q1Times := make(map[string]float64)
+	for _, result := range race.QualifyingResults {
+		if result.Q1 != "" {
+			if time, err := ParseQualifyingTime(result.Q1); err == nil {
+				q1Times[result.Driver.Code] = time
+				if q1LeaderTime == 0 || time < q1LeaderTime {
+					q1LeaderTime = time
+				}
+			}
+		}
+	}
+	
+	// Parse Q2 times and find leader
+	q2Times := make(map[string]float64)
+	for _, result := range race.QualifyingResults {
+		if result.Q2 != "" {
+			if time, err := ParseQualifyingTime(result.Q2); err == nil {
+				q2Times[result.Driver.Code] = time
+				if q2LeaderTime == 0 || time < q2LeaderTime {
+					q2LeaderTime = time
+				}
+			}
+		}
+	}
+	
+	// Parse Q3 times and find leader
+	q3Times := make(map[string]float64)
+	for _, result := range race.QualifyingResults {
+		if result.Q3 != "" {
+			if time, err := ParseQualifyingTime(result.Q3); err == nil {
+				q3Times[result.Driver.Code] = time
+				if q3LeaderTime == 0 || time < q3LeaderTime {
+					q3LeaderTime = time
+				}
+			}
+		}
+	}
+	
+	// Format the results into a table-like string
+	resultsStr := ""
+	for _, result := range race.QualifyingResults {
+		driverName := fmt.Sprintf("%s %s", result.Driver.GivenName, result.Driver.FamilyName)
+		
+		// Calculate gaps to leader for each session
+		q1Gap := ""
+		q2Gap := ""
+		q3Gap := ""
+		
+		if result.Q1 != "" {
+			if time, exists := q1Times[result.Driver.Code]; exists && q1LeaderTime > 0 {
+				if time == q1LeaderTime {
+					q1Gap = "1st"
+				} else {
+					gap := time - q1LeaderTime
+					q1Gap = fmt.Sprintf("+%.3f", gap)
+				}
+			}
+		} else {
+			q1Gap = "—"
+		}
+		
+		if result.Q2 != "" {
+			if time, exists := q2Times[result.Driver.Code]; exists && q2LeaderTime > 0 {
+				if time == q2LeaderTime {
+					q2Gap = "1st"
+				} else {
+					gap := time - q2LeaderTime
+					q2Gap = fmt.Sprintf("+%.3f", gap)
+				}
+			}
+		} else {
+			q2Gap = "—"
+		}
+		
+		if result.Q3 != "" {
+			if time, exists := q3Times[result.Driver.Code]; exists && q3LeaderTime > 0 {
+				if time == q3LeaderTime {
+					q3Gap = "1st"
+				} else {
+					gap := time - q3LeaderTime
+					q3Gap = fmt.Sprintf("+%.3f", gap)
+				}
+			}
+		} else {
+			q3Gap = "—"
+		}
+		
+		resultsStr += fmt.Sprintf("`%-2s` %-20s %-10s %-10s %-10s %-10s\n",
+			result.Position,
+			TruncateString(driverName, 20),
+			TruncateString(result.Driver.Code, 4),
+			TruncateString(result.Constructor.Name, 10),
+			TruncateString(q1Gap, 10),
+			TruncateString(q2Gap, 10),
+			TruncateString(q3Gap, 10))
+	}
+
+	// Determine the pole sitter's team color
+	var color int = 0xFF0000 // Default red color for F1
+	if len(race.QualifyingResults) > 0 {
+		poleSitter := race.QualifyingResults[0]
+		driverCode := poleSitter.Driver.Code
+		if team, exists := DriverInfo[driverCode]; exists {
+			if teamColor, exists := TeamColors[team]; exists {
+				color = teamColor
+			}
+		}
+	}
+
+	// Create an embed with the qualifying results
+	embed := &discordgo.MessageEmbed{
+		Title: fmt.Sprintf("🏁 %s Qualifying Results", race.RaceName),
+		Description: fmt.Sprintf("%s, %s", race.Circuit.CircuitName, race.Circuit.Location.Country),
+		Color: color,
+		Fields: []*discordgo.MessageEmbedField{
+			{
+				Name:   "Results",
+				Value:  fmt.Sprintf("```\nPos Driver               Code Team       Q1 Gap    Q2 Gap    Q3 Gap   \n%s```", resultsStr),
+				Inline: false,
+			},
+		},
+	}
+
+	s.ChannelMessageSendEmbed(m.ChannelID, embed)
 }
 
 func GetPracticeResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, sessionType, raceQuery string) {
@@ -337,4 +547,57 @@ func GetSprintResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCrea
 
 func GetSprintQualifyingResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, raceQuery string) {
 	s.ChannelMessageSend(m.ChannelID, "Sprint qualifying results functionality to be implemented")
+}
+
+// Helper function to find the round number of an event
+func findEventRound(events []Event, targetEvent *Event) int {
+	for i, event := range events {
+		if event.Name == targetEvent.Name {
+			return i + 1 // Rounds are 1-indexed
+		}
+	}
+	return 0
+}
+
+// formatTime formats a time string, returning "—" for empty times
+func formatTime(timeStr string) string {
+	if timeStr == "" {
+		return "—"
+	}
+	return timeStr
+}
+
+// ParseQualifyingTime parses a qualifying time string (e.g., "1:32.323") into seconds
+func ParseQualifyingTime(timeStr string) (float64, error) {
+	if timeStr == "" {
+		return 0, fmt.Errorf("empty time string")
+	}
+	
+	// Handle format like "1:32.323" (minutes:seconds.milliseconds)
+	if strings.Contains(timeStr, ":") {
+		parts := strings.Split(timeStr, ":")
+		if len(parts) != 2 {
+			return 0, fmt.Errorf("invalid time format")
+		}
+		
+		minutes, err := strconv.ParseFloat(parts[0], 64)
+		if err != nil {
+			return 0, err
+		}
+		
+		seconds, err := strconv.ParseFloat(parts[1], 64)
+		if err != nil {
+			return 0, err
+		}
+		
+		return minutes*60 + seconds, nil
+	}
+	
+	// Handle format like "52.323" (seconds.milliseconds)
+	seconds, err := strconv.ParseFloat(timeStr, 64)
+	if err != nil {
+		return 0, err
+	}
+	
+	return seconds, nil
 }

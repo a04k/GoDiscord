@@ -3,14 +3,15 @@ package f1
 import (
 	"encoding/json"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 )
 
-const ergastAPI = "https://api.jolpi.ca/ergast/f1/current"
+const ergastAPI = "https://ergast.com/api/f1/current"
 
-// Event represents a single F1 event (Grand Prix) from our schedule.
+// Event represents a single F1 event from the schedule.
 type Event struct {
 	Name     string    `json:"name"`
 	Location string    `json:"location"`
@@ -27,48 +28,31 @@ type Session struct {
 
 // TeamColors maps constructor names to their Discord color codes
 var TeamColors = map[string]int{
-	"Red Bull":       0x1E5BC6,
-	"Ferrari":        0xDC0000,
-	"Mercedes":       0x00D2BE,
-	"McLaren":        0xFF8700,
-	"Aston Martin":   0x006F62,
-	"Alpine":         0x0090FF,
-	"Williams":       0x005AFF,
-	"AlphaTauri":     0x2B4562,
-	"Haas F1 Team":   0xFFFFFF,
-	"Alfa Romeo":     0x960000,
-	"RB F1 Team":     0x6600FF,
-	"Sauber":         0x006400,
+	"Red Bull":     0x1E5BC6,
+	"Ferrari":      0xDC0000,
+	"Mercedes":     0x00D2BE,
+	"McLaren":      0xFF8700,
+	"Aston Martin": 0x006F62,
+	"Alpine":       0x0090FF,
+	"Williams":     0x005AFF,
+	"AlphaTauri":   0x2B4562,
+	"Haas F1 Team": 0xFFFFFF,
+	"Alfa Romeo":   0x960000,
+	"RB F1 Team":   0x6600FF,
+	"Sauber":       0x006400,
 }
 
-// DriverInfo maps driver names/codes to constructor names for color coding
-var DriverInfo = map[string]string{
-	"VER": "Red Bull", "PER": "Red Bull",
-	"LEC": "Ferrari", "SAI": "Ferrari",
-	"HAM": "Mercedes", "RUS": "Mercedes",
-	"NOR": "McLaren", "PIA": "McLaren",
-	"ALO": "Aston Martin", "STR": "Aston Martin",
-	"OCO": "Alpine", "GAS": "Alpine",
-	"ALB": "Williams", "SAR": "Williams",
-	"TSU": "RB F1 Team", "LAW": "RB F1 Team",
-	"MAG": "Haas F1 Team", "HUL": "Haas F1 Team",
-	"BOT": "Alfa Romeo", "ZHO": "Alfa Romeo",
-	"RIC": "RB F1 Team", "COL": "RB F1 Team",
-}
+// Ergast API Response Structs
 
-// DriverStandingsResponse represents the structure of the Ergast API response for driver standings
 type DriverStandingsResponse struct {
 	MRData struct {
 		StandingsTable struct {
-			Season        string `json:"season"`
 			StandingsLists []struct {
-				Season         string `json:"season"`
-				Round          string `json:"round"`
 				DriverStandings []struct {
-					Position  string `json:"position"`
-					Points    string `json:"points"`
-					Wins      string `json:"wins"`
-					Driver    struct {
+					Position string `json:"position"`
+					Points   string `json:"points"`
+					Wins     string `json:"wins"`
+					Driver   struct {
 						GivenName  string `json:"givenName"`
 						FamilyName string `json:"familyName"`
 						Code       string `json:"code"`
@@ -79,14 +63,10 @@ type DriverStandingsResponse struct {
 	} `json:"MRData"`
 }
 
-// ConstructorStandingsResponse represents the structure of the Ergast API response for constructor standings
 type ConstructorStandingsResponse struct {
 	MRData struct {
 		StandingsTable struct {
-			Season        string `json:"season"`
 			StandingsLists []struct {
-				Season         string `json:"season"`
-				Round          string `json:"round"`
 				ConstructorStandings []struct {
 					Position    string `json:"position"`
 					Points      string `json:"points"`
@@ -100,7 +80,6 @@ type ConstructorStandingsResponse struct {
 	} `json:"MRData"`
 }
 
-// QualifyingResponse represents the structure of the Ergast API response for qualifying results
 type QualifyingResponse struct {
 	MRData struct {
 		RaceTable struct {
@@ -110,31 +89,11 @@ type QualifyingResponse struct {
 }
 
 type QualifyingResponse_MRDatum_RaceTable_Race struct {
-	RaceName string `json:"raceName"`
-	Circuit  struct {
-		CircuitName string `json:"circuitName"`
-		Location    struct {
-			Locality string `json:"locality"`
-			Country  string `json:"country"`
-		} `json:"Location"`
-	} `json:"Circuit"`
-	QualifyingResults []struct {
-		Position   string `json:"position"`
-		Driver     struct {
-			GivenName  string `json:"givenName"`
-			FamilyName string `json:"familyName"`
-			Code       string `json:"code"`
-		} `json:"Driver"`
-		Constructor struct {
-			Name string `json:"name"`
-		} `json:"Constructor"`
-		Q1 string `json:"Q1"`
-		Q2 string `json:"Q2"`
-		Q3 string `json:"Q3"`
-	} `json:"QualifyingResults"`
+	RaceName          string `json:"raceName"`
+	Circuit           CircuitInfo `json:"Circuit"`
+	QualifyingResults []QualifyingResult `json:"QualifyingResults"`
 }
 
-// RaceResultsResponse represents the structure of the Ergast API response for race results
 type RaceResultsResponse struct {
 	MRData struct {
 		RaceTable struct {
@@ -144,38 +103,78 @@ type RaceResultsResponse struct {
 }
 
 type RaceResultsResponse_MRDatum_RaceTable_Race struct {
-	RaceName string `json:"raceName"`
-	Circuit  struct {
-		CircuitName string `json:"circuitName"`
-		Location    struct {
-			Locality string `json:"locality"`
-			Country  string `json:"country"`
-		} `json:"Location"`
-	} `json:"Circuit"`
-	Results []struct {
-		Position     string `json:"position"`
-		Points       string `json:"points"`
-		Driver       struct {
-			GivenName  string `json:"givenName"`
-			FamilyName string `json:"familyName"`
-			Code       string `json:"code"`
-		} `json:"Driver"`
-		Constructor struct {
-			Name string `json:"name"`
-		} `json:"Constructor"`
-		Laps       string `json:"laps"`
-		Status     string `json:"status"`
-		Time       struct {
-			Time   string `json:"time"`
-			Millis string `json:"millis"`
-		} `json:"Time"`
-		FastestLap struct {
-			Time struct {
-				Time string `json:"time"`
-			} `json:"Time"`
-		} `json:"FastestLap"`
-	} `json:"Results"`
+	RaceName string        `json:"raceName"`
+	Circuit  CircuitInfo   `json:"Circuit"`
+	Results  []RaceResult `json:"Results"`
 }
+
+type SprintResultsResponse struct {
+	MRData struct {
+		RaceTable struct {
+			Races []SprintResultsResponse_MRDatum_RaceTable_Race `json:"Races"`
+		} `json:"RaceTable"`
+	} `json:"MRData"`
+}
+
+type SprintResultsResponse_MRDatum_RaceTable_Race struct {
+	RaceName      string         `json:"raceName"`
+	Circuit       CircuitInfo    `json:"Circuit"`
+	SprintResults []SprintResult `json:"SprintResults"`
+}
+
+// Common sub-structs
+
+type CircuitInfo struct {
+	CircuitName string `json:"circuitName"`
+	Location    struct {
+		Country string `json:"country"`
+	} `json:"Location"`
+}
+
+type QualifyingResult struct {
+	Position    string `json:"position"`
+	Driver      DriverInfo `json:"Driver"`
+	Constructor ConstructorInfo `json:"Constructor"`
+	Q1          string `json:"Q1"`
+	Q2          string `json:"Q2"`
+	Q3          string `json:"Q3"`
+}
+
+type RaceResult struct {
+	Position    string `json:"position"`
+	Points      string `json:"points"`
+	Driver      DriverInfo `json:"Driver"`
+	Constructor ConstructorInfo `json:"Constructor"`
+	Laps        string `json:"laps"`
+	Status      string `json:"status"`
+	Time        struct {
+		Time string `json:"time"`
+	} `json:"Time"`
+}
+
+type SprintResult struct {
+	Position    string `json:"position"`
+	Points      string `json:"points"`
+	Driver      DriverInfo `json:"Driver"`
+	Constructor ConstructorInfo `json:"Constructor"`
+	Laps        string `json:"laps"`
+	Status      string `json:"status"`
+	Time        struct {
+		Time string `json:"time"`
+	} `json:"Time"`
+}
+
+type DriverInfo struct {
+	GivenName  string `json:"givenName"`
+	FamilyName string `json:"familyName"`
+	Code       string `json:"code"`
+}
+
+type ConstructorInfo struct {
+	Name string `json:"name"`
+}
+
+// --- Fetch Functions ---
 
 func fetchAndDecode(url string, target interface{}) error {
 	resp, err := http.Get(url)
@@ -184,7 +183,7 @@ func fetchAndDecode(url string, target interface{}) error {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("error reading response body: %w", err)
 	}
@@ -194,26 +193,6 @@ func fetchAndDecode(url string, target interface{}) error {
 	}
 
 	return nil
-}
-
-func FetchDriverStandings() (*DriverStandingsResponse, error) {
-	var data DriverStandingsResponse
-	url := fmt.Sprintf("%s/driverStandings.json", ergastAPI)
-	if err := fetchAndDecode(url, &data); err != nil {
-		log.Printf("Error fetching or decoding driver standings: %v", err)
-		return nil, err
-	}
-	return &data, nil
-}
-
-func FetchConstructorStandings() (*ConstructorStandingsResponse, error) {
-	var data ConstructorStandingsResponse
-	url := fmt.Sprintf("%s/constructorStandings.json", ergastAPI)
-	if err := fetchAndDecode(url, &data); err != nil {
-		log.Printf("Error fetching or decoding constructor standings: %v", err)
-		return nil, err
-	}
-	return &data, nil
 }
 
 func FetchLatestRaceResults() (*RaceResultsResponse, error) {
@@ -236,7 +215,7 @@ func FetchRaceResultsByRound(round int) (*RaceResultsResponse, error) {
 	return &data, nil
 }
 
-func FetchQualifyingResults() (*QualifyingResponse, error) {
+func FetchLatestQualifyingResults() (*QualifyingResponse, error) {
 	var data QualifyingResponse
 	url := fmt.Sprintf("%s/last/qualifying.json", ergastAPI)
 	if err := fetchAndDecode(url, &data); err != nil {
@@ -254,4 +233,31 @@ func FetchQualifyingResultsByRound(round int) (*QualifyingResponse, error) {
 		return nil, err
 	}
 	return &data, nil
+}
+
+func FetchSprintResultsByRound(round int) (*SprintResultsResponse, error) {
+	var data SprintResultsResponse
+	url := fmt.Sprintf("%s/%d/sprint.json", ergastAPI, round)
+	if err := fetchAndDecode(url, &data); err != nil {
+		// Ergast often returns a 404 for rounds without a sprint race, which is expected.
+		// We log it for debugging but return nil, nil to indicate no data.
+		log.Printf("Note: Could not fetch sprint results for round %d (may not exist): %v", round, err)
+		return nil, nil
+	}
+	return &data, nil
+}
+
+func FetchF1Events() ([]Event, error) {
+	jsonFile, err := os.Open("commands/sports/f1/f1_schedule_2025.json")
+	if err != nil {
+		return nil, err
+	}
+	defer jsonFile.Close()
+
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+
+	var events []Event
+	json.Unmarshal(byteValue, &events)
+
+	return events, nil
 }

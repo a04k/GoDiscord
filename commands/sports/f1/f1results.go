@@ -3,7 +3,6 @@ package f1
 import (
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
@@ -74,38 +73,9 @@ func ShowSessionSelection(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 		return
 	}
 
-<<<<<<< HEAD
-	now := time.Now().UTC()
-	var previousEvent *Event
-
-	// Find the most recent event that has ended
-	for i := len(events) - 1; i >= 0; i-- {
-		event := events[i]
-		if len(event.Sessions) == 0 {
-			continue
-		}
-
-		// Get the last session of the event (typically Race)
-		lastSession := event.Sessions[len(event.Sessions)-1]
-		eventEndTime, err := time.Parse(time.RFC3339, lastSession.Date)
-		if err != nil {
-			continue
-		}
-
-		// If this event has ended, it's our target
-		if eventEndTime.Before(now) {
-			previousEvent = &event
-			break
-		}
-	}
-
-	if previousEvent == nil {
-		s.ChannelMessageSend(m.ChannelID, "No previous F1 events found.")
-=======
 	previousEvent := getPreviousEvent(events)
 	if previousEvent == nil {
 		s.ChannelMessageSend(m.ChannelID, "Could not determine the previous F1 event.")
->>>>>>> 8b95168ff9efe9d60dded222b8cf676ce5f0aa66
 		return
 	}
 	round := findEventRound(events, *previousEvent)
@@ -114,14 +84,6 @@ func ShowSessionSelection(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 	var sessionButtons []discordgo.MessageComponent
 
 	for _, session := range previousEvent.Sessions {
-<<<<<<< HEAD
-		button := discordgo.Button{
-			Label: session.Name,
-			Style: discordgo.PrimaryButton,
-			CustomID: fmt.Sprintf("f1_results_%s_%s", 
-				strings.ToLower(strings.ReplaceAll(session.Name, " ", "_")), 
-				strings.ToLower(strings.ReplaceAll(previousEvent.Name, " ", "_"))),
-=======
 		sessionType := strings.ToLower(session.Type)
 		// Ergast API does not support practice results, so we disable the buttons
 		disabled := strings.Contains(sessionType, "practice")
@@ -131,7 +93,6 @@ func ShowSessionSelection(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 			Style:    discordgo.PrimaryButton,
 			CustomID: fmt.Sprintf("f1_results_%s_%d", sessionType, round),
 			Disabled: disabled,
->>>>>>> 8b95168ff9efe9d60dded222b8cf676ce5f0aa66
 		}
 		sessionButtons = append(sessionButtons, button)
 	}
@@ -149,13 +110,8 @@ func ShowSessionSelection(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 	s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
 		Embed: &discordgo.MessageEmbed{
 			Title:       fmt.Sprintf("F1 Results - %s", previousEvent.Name),
-<<<<<<< HEAD
-			Description: fmt.Sprintf("Select a session to view results for %s", previousEvent.Name),
-			Color:       0xFF0000,
-=======
 			Description: fmt.Sprintf("Select a session to view results for the %s.", previousEvent.Name),
 			Color:       0xFF0000, // Red for F1
->>>>>>> 8b95168ff9efe9d60dded222b8cf676ce5f0aa66
 		},
 		Components: components,
 	})
@@ -242,8 +198,7 @@ func GetSprintResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCrea
 
 func displayRaceResults(s *discordgo.Session, channelID string, race RaceResultsResponse_MRDatum_RaceTable_Race) {
 	var resultsStr strings.Builder
-	resultsStr.WriteString("`Pos Driver               Team       Laps   Time/Status   Pts`
-")
+	resultsStr.WriteString("```\nPos Driver               Team       Laps   Time/Status   Pts\n")
 
 	for _, result := range race.Results {
 		driverName := fmt.Sprintf("%s %s", result.Driver.GivenName, result.Driver.FamilyName)
@@ -252,15 +207,10 @@ func displayRaceResults(s *discordgo.Session, channelID string, race RaceResults
 			timeOrStatus = result.Time.Time
 		}
 
-		resultsStr.WriteString(fmt.Sprintf("`%-3s %-20s %-10s %-5s %-12s %-3s`
-",
-			result.Position,
-			TruncateString(driverName, 18),
-			TruncateString(result.Constructor.Name, 10),
-			result.Laps,
-			TruncateString(timeOrStatus, 12),
-			result.Points))
+		line := fmt.Sprintf("%-3s %-20s %-10s %-5s %-12s %-3s", result.Position, TruncateString(driverName, 18), TruncateString(result.Constructor.Name, 10), result.Laps, TruncateString(timeOrStatus, 12), result.Points)
+		resultsStr.WriteString(line + "\n")
 	}
+	resultsStr.WriteString("```")
 
 	color := 0xFF0000 // Default F1 red
 	if len(race.Results) > 0 {
@@ -272,18 +222,12 @@ func displayRaceResults(s *discordgo.Session, channelID string, race RaceResults
 
 	embed := &discordgo.MessageEmbed{
 		Title:       fmt.Sprintf("🏁 %s Results", race.RaceName),
-		Description: fmt.Sprintf("**%s**
-%s, %s", race.RaceName, race.Circuit.CircuitName, race.Circuit.Location.Country),
+		Description: fmt.Sprintf("**%s**\n%s, %s", race.RaceName, race.Circuit.CircuitName, race.Circuit.Location.Country),
 		Color:       color,
 		Fields: []*discordgo.MessageEmbedField{
-			{
-				Name:  "Race Results",
-				Value: resultsStr.String(),
-			},
+			{Name: "Race Results", Value: resultsStr.String()},
 		},
-		Footer: &discordgo.MessageEmbedFooter{
-			Text: "Formula 1 Results",
-		},
+		Footer: &discordgo.MessageEmbedFooter{Text: "Formula 1 Results"},
 	}
 
 	s.ChannelMessageSendEmbed(channelID, embed)
@@ -291,8 +235,7 @@ func displayRaceResults(s *discordgo.Session, channelID string, race RaceResults
 
 func displayQualifyingResults(s *discordgo.Session, channelID string, race QualifyingResponse_MRDatum_RaceTable_Race) {
 	var resultsStr strings.Builder
-	resultsStr.WriteString("`Pos Driver           Team         Q1         Q2         Q3`
-")
+	resultsStr.WriteString("```\nPos Driver           Team         Q1         Q2         Q3\n")
 
 	for _, result := range race.QualifyingResults {
 		driverName := fmt.Sprintf("%s. %s", string(result.Driver.GivenName[0]), result.Driver.FamilyName)
@@ -309,62 +252,11 @@ func displayQualifyingResults(s *discordgo.Session, channelID string, race Quali
 			q3 = "N/A"
 		}
 
-		resultsStr.WriteString(fmt.Sprintf("`%-3s %-16s %-12s %-10s %-10s %-10s`
-",
-			result.Position,
-			TruncateString(driverName, 15),
-			TruncateString(result.Constructor.Name, 11),
-			q1, q2, q3))
+		line := fmt.Sprintf("%-3s %-16s %-12s %-10s %-10s %-10s", result.Position, TruncateString(driverName, 15), TruncateString(result.Constructor.Name, 11), q1, q2, q3)
+		resultsStr.WriteString(line + "\n")
 	}
+	resultsStr.WriteString("```")
 
-<<<<<<< HEAD
-	// If raceQuery is provided, find the specific race
-	events, err := FetchF1Events()
-	if err != nil {
-		log.Printf("Error fetching F1 events: %v", err)
-		s.ChannelMessageSend(m.ChannelID, "Error fetching F1 schedule")
-		return
-	}
-
-	// Find the event that matches the query
-	var targetEvent *Event
-	raceQueryLower := strings.ToLower(raceQuery)
-	
-	// First try direct matching
-	for _, event := range events {
-		// Check if the query matches the event name, location, or circuit
-		eventNameLower := strings.ToLower(event.Name)
-		eventLocationLower := strings.ToLower(event.Location)
-		eventCircuitLower := strings.ToLower(event.Circuit)
-		
-		if strings.Contains(eventNameLower, raceQueryLower) ||
-			strings.Contains(eventLocationLower, raceQueryLower) ||
-			strings.Contains(eventCircuitLower, raceQueryLower) ||
-			// Special case for common names
-			strings.Contains(eventNameLower, "grand prix") && strings.Contains(raceQueryLower, "gp") {
-			targetEvent = &event
-			break
-		}
-	}
-
-	// Try alternative matching for common names if direct matching failed
-	if targetEvent == nil {
-		for _, event := range events {
-			eventNameLower := strings.ToLower(event.Name)
-			eventCircuitLower := strings.ToLower(event.Circuit)
-			
-			// Handle cases like "spa" matching "Belgian Grand Prix"
-			if (strings.Contains(raceQueryLower, "spa") && strings.Contains(eventNameLower, "belgian")) ||
-				(strings.Contains(raceQueryLower, "hungary") && strings.Contains(eventNameLower, "hungarian")) ||
-				(strings.Contains(raceQueryLower, "hungaroring") && strings.Contains(eventNameLower, "hungarian")) ||
-				(strings.Contains(raceQueryLower, "budapest") && strings.Contains(eventNameLower, "hungarian")) ||
-				(strings.Contains(raceQueryLower, "monaco") && strings.Contains(eventNameLower, "monaco")) ||
-				(strings.Contains(raceQueryLower, "silverstone") && strings.Contains(eventNameLower, "british")) ||
-				(strings.Contains(raceQueryLower, "monza") && strings.Contains(eventNameLower, "italian")) ||
-				// Additional matching for "spa"
-				(strings.Contains(raceQueryLower, "spa") && strings.Contains(eventCircuitLower, "spa")) {
-				targetEvent = &event
-=======
 	color := 0xFF0000 // Default F1 red
 	if len(race.QualifyingResults) > 0 {
 		poleSitterTeam := race.QualifyingResults[0].Constructor.Name
@@ -375,26 +267,19 @@ func displayQualifyingResults(s *discordgo.Session, channelID string, race Quali
 
 	embed := &discordgo.MessageEmbed{
 		Title:       fmt.Sprintf("Qualifying Results - %s", race.RaceName),
-		Description: fmt.Sprintf("**%s**
-%s, %s", race.RaceName, race.Circuit.CircuitName, race.Circuit.Location.Country),
+		Description: fmt.Sprintf("**%s**\n%s, %s", race.RaceName, race.Circuit.CircuitName, race.Circuit.Location.Country),
 		Color:       color,
 		Fields: []*discordgo.MessageEmbedField{
-			{
-				Name:  "Qualifying Times",
-				Value: resultsStr.String(),
-			},
+			{Name: "Qualifying Times", Value: resultsStr.String()},
 		},
-		Footer: &discordgo.MessageEmbedFooter{
-			Text: "Formula 1 Qualifying Results",
-		},
+		Footer: &discordgo.MessageEmbedFooter{Text: "Formula 1 Qualifying Results"},
 	}
 	s.ChannelMessageSendEmbed(channelID, embed)
 }
 
 func displaySprintResults(s *discordgo.Session, channelID string, race SprintResultsResponse_MRDatum_RaceTable_Race) {
 	var resultsStr strings.Builder
-	resultsStr.WriteString("`Pos Driver               Team       Laps   Time/Status   Pts`
-")
+	resultsStr.WriteString("```\nPos Driver               Team       Laps   Time/Status   Pts\n")
 
 	for _, result := range race.SprintResults {
 		driverName := fmt.Sprintf("%s %s", result.Driver.GivenName, result.Driver.FamilyName)
@@ -403,15 +288,10 @@ func displaySprintResults(s *discordgo.Session, channelID string, race SprintRes
 			timeOrStatus = result.Time.Time
 		}
 
-		resultsStr.WriteString(fmt.Sprintf("`%-3s %-20s %-10s %-5s %-12s %-3s`
-",
-			result.Position,
-			TruncateString(driverName, 18),
-			TruncateString(result.Constructor.Name, 10),
-			result.Laps,
-			TruncateString(timeOrStatus, 12),
-			result.Points))
+		line := fmt.Sprintf("%-3s %-20s %-10s %-5s %-12s %-3s", result.Position, TruncateString(driverName, 18), TruncateString(result.Constructor.Name, 10), result.Laps, TruncateString(timeOrStatus, 12), result.Points)
+		resultsStr.WriteString(line + "\n")
 	}
+	resultsStr.WriteString("```")
 
 	color := 0xFF0000 // Default F1 red
 	if len(race.SprintResults) > 0 {
@@ -423,18 +303,12 @@ func displaySprintResults(s *discordgo.Session, channelID string, race SprintRes
 
 	embed := &discordgo.MessageEmbed{
 		Title:       fmt.Sprintf("Sprint Race Results - %s", race.RaceName),
-		Description: fmt.Sprintf("**%s**
-%s, %s", race.RaceName, race.Circuit.CircuitName, race.Circuit.Location.Country),
+		Description: fmt.Sprintf("**%s**\n%s, %s", race.RaceName, race.Circuit.CircuitName, race.Circuit.Location.Country),
 		Color:       color,
 		Fields: []*discordgo.MessageEmbedField{
-			{
-				Name:  "Sprint Race Results",
-				Value: resultsStr.String(),
-			},
+			{Name: "Sprint Race Results", Value: resultsStr.String()},
 		},
-		Footer: &discordgo.MessageEmbedFooter{
-			Text: "Formula 1 Sprint Race Results",
-		},
+		Footer: &discordgo.MessageEmbedFooter{Text: "Formula 1 Sprint Race Results"},
 	}
 	s.ChannelMessageSendEmbed(channelID, embed)
 }
@@ -463,7 +337,6 @@ func getPreviousEvent(events []Event) *Event {
 		for _, s := range event.Sessions {
 			if strings.ToLower(s.Type) == "race" {
 				raceSessionDateStr = s.Date
->>>>>>> 8b95168ff9efe9d60dded222b8cf676ce5f0aa66
 				break
 			}
 		}
@@ -482,16 +355,36 @@ func getPreviousEvent(events []Event) *Event {
 			return previousEvent
 		}
 	}
-	return nil // Should not happen if schedule is valid
+	return nil
 }
 
 func findEventByQuery(events []Event, query string) *Event {
 	query = strings.ToLower(query)
 	for i := len(events) - 1; i >= 0; i-- {
 		event := events[i]
-		if strings.Contains(strings.ToLower(event.Name), query) ||
-			strings.Contains(strings.ToLower(event.Location), query) ||
-			strings.Contains(strings.ToLower(event.Circuit), query) {
+		eventNameLower := strings.ToLower(event.Name)
+		eventLocationLower := strings.ToLower(event.Location)
+		eventCircuitLower := strings.ToLower(event.Circuit)
+		
+		// Direct matching
+		if strings.Contains(eventNameLower, query) ||
+			strings.Contains(eventLocationLower, query) ||
+			strings.Contains(eventCircuitLower, query) ||
+			// Special case for common names
+			strings.Contains(eventNameLower, "grand prix") && strings.Contains(query, "gp") {
+			return &event
+		}
+		
+		// Alternative matching for common names
+		if (strings.Contains(query, "spa") && strings.Contains(eventNameLower, "belgian")) ||
+			(strings.Contains(query, "hungary") && strings.Contains(eventNameLower, "hungarian")) ||
+			(strings.Contains(query, "hungaroring") && strings.Contains(eventNameLower, "hungarian")) ||
+			(strings.Contains(query, "budapest") && strings.Contains(eventNameLower, "hungarian")) ||
+			(strings.Contains(query, "monaco") && strings.Contains(eventNameLower, "monaco")) ||
+			(strings.Contains(query, "silverstone") && strings.Contains(eventNameLower, "british")) ||
+			(strings.Contains(query, "monza") && strings.Contains(eventNameLower, "italian")) ||
+			// Additional matching for "spa"
+			(strings.Contains(query, "spa") && strings.Contains(eventCircuitLower, "spa")) {
 			return &event
 		}
 	}
@@ -516,3 +409,4 @@ func TruncateString(s string, maxLen int) string {
 	}
 	return s
 }
+

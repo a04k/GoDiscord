@@ -47,6 +47,7 @@ var TeamColors = map[string]int{
 type DriverStandingsResponse struct {
 	MRData struct {
 		StandingsTable struct {
+			Season        string `json:"season"`
 			StandingsLists []struct {
 				DriverStandings []struct {
 					Position string `json:"position"`
@@ -66,6 +67,7 @@ type DriverStandingsResponse struct {
 type ConstructorStandingsResponse struct {
 	MRData struct {
 		StandingsTable struct {
+			Season        string `json:"season"`
 			StandingsLists []struct {
 				ConstructorStandings []struct {
 					Position    string `json:"position"`
@@ -243,6 +245,26 @@ func FetchSprintResultsByRound(round int) (*SprintResultsResponse, error) {
 		// We log it for debugging but return nil, nil to indicate no data.
 		log.Printf("Note: Could not fetch sprint results for round %d (may not exist): %v", round, err)
 		return nil, nil
+	}
+	return &data, nil
+}
+
+func FetchDriverStandings() (*DriverStandingsResponse, error) {
+	var data DriverStandingsResponse
+	url := fmt.Sprintf("%s/driverStandings.json", ergastAPI)
+	if err := fetchAndDecode(url, &data); err != nil {
+		log.Printf("Error fetching or decoding driver standings: %v", err)
+		return nil, err
+	}
+	return &data, nil
+}
+
+func FetchConstructorStandings() (*ConstructorStandingsResponse, error) {
+	var data ConstructorStandingsResponse
+	url := fmt.Sprintf("%s/constructorStandings.json", ergastAPI)
+	if err := fetchAndDecode(url, &data); err != nil {
+		log.Printf("Error fetching or decoding constructor standings: %v", err)
+		return nil, err
 	}
 	return &data, nil
 }

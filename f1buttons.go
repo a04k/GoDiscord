@@ -46,8 +46,9 @@ func handleF1ResultsButton(b *bot.Bot, s *discordgo.Session, i *discordgo.Intera
 		f1.GetRaceResults(b, s, m, round)
 	default:
 		// For unsupported sessions like practice, we can send a follow-up message.
+		content := "Results for this session type are not available."
 		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Content: "Results for this session type are not available.",
+			Content: &content,
 		})
 	}
 }

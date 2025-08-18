@@ -2,13 +2,8 @@ package f1
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
-	"runtime"
-	"sort"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -163,33 +158,4 @@ func (fn *F1Notifier) scheduleNotifications(message string, source string) {
 	}
 }
 
-// FetchF1Events reads the F1 schedule from the local JSON file.
-func FetchF1Events() ([]Event, error) {
-	// Get the directory of the current file
-	_, filename, _, _ := runtime.Caller(0)
-	dir := filepath.Dir(filename)
-	
-	// Read the JSON file
-	jsonFile, err := os.ReadFile(filepath.Join(dir, "f1_schedule_2025.json"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to read F1 schedule file: %w", err)
-	}
 
-	var events []Event
-	err = json.Unmarshal(jsonFile, &events)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding F1 events: %w", err)
-	}
-
-	// Sort events by the date of their first session
-	sort.Slice(events, func(i, j int) bool {
-		if len(events[i].Sessions) == 0 || len(events[j].Sessions) == 0 {
-			return false
-		}
-		timeI, _ := time.Parse(time.RFC3339, events[i].Sessions[0].Date)
-		timeJ, _ := time.Parse(time.RFC3339, events[j].Sessions[0].Date)
-		return timeI.Before(timeJ)
-	})
-
-	return events, nil
-}

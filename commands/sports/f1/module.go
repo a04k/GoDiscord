@@ -19,12 +19,6 @@ type SubcommandInfo struct {
 
 // Define subcommands with their information
 var f1Subcommands = map[string]SubcommandInfo{
-	"standings": {
-		Handler:     F1Standings,
-		Description: "Shows the current F1 championship standings",
-		Usage:       ".f1 standings",
-		Aliases:     []string{"f1standings"},
-	},
 	"wdc": {
 		Handler:     F1WDC,
 		Description: "Shows the F1 Driver's Championship standings",

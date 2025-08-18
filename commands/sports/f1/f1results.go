@@ -69,9 +69,9 @@ func ShowSessionSelection(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 	}
 
 	now := time.Now().UTC()
-	var currentOrLastEvent *Event
+	var previousEvent *Event
 
-	// Find the current or most recent event
+	// Find the most recent event that has ended
 	for i := len(events) - 1; i >= 0; i-- {
 		event := events[i]
 		if len(event.Sessions) == 0 {
@@ -85,25 +85,15 @@ func ShowSessionSelection(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 			continue
 		}
 
-		// If this event hasn't ended yet, it's the current event
-		if eventEndTime.After(now) {
-			currentOrLastEvent = &event
+		// If this event has ended, it's our target
+		if eventEndTime.Before(now) {
+			previousEvent = &event
 			break
 		}
-
-		// If we haven't found a current event, use the most recent one that has ended
-		if currentOrLastEvent == nil {
-			currentOrLastEvent = &event
-		}
 	}
 
-	// If we still haven't found an event, use the first one
-	if currentOrLastEvent == nil && len(events) > 0 {
-		currentOrLastEvent = &events[len(events)-1]
-	}
-
-	if currentOrLastEvent == nil {
-		s.ChannelMessageSend(m.ChannelID, "No F1 events found.")
+	if previousEvent == nil {
+		s.ChannelMessageSend(m.ChannelID, "No previous F1 events found.")
 		return
 	}
 
@@ -111,13 +101,13 @@ func ShowSessionSelection(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 	var components []discordgo.MessageComponent
 	var sessionButtons []discordgo.MessageComponent
 
-	for _, session := range currentOrLastEvent.Sessions {
+	for _, session := range previousEvent.Sessions {
 		button := discordgo.Button{
 			Label: session.Name,
 			Style: discordgo.PrimaryButton,
 			CustomID: fmt.Sprintf("f1_results_%s_%s", 
 				strings.ToLower(strings.ReplaceAll(session.Name, " ", "_")), 
-				strings.ToLower(strings.ReplaceAll(currentOrLastEvent.Name, " ", "_"))),
+				strings.ToLower(strings.ReplaceAll(previousEvent.Name, " ", "_"))),
 		}
 		sessionButtons = append(sessionButtons, button)
 	}
@@ -136,8 +126,8 @@ func ShowSessionSelection(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 	// Send message with buttons
 	s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
 		Embed: &discordgo.MessageEmbed{
-			Title:       fmt.Sprintf("F1 Results - %s", currentOrLastEvent.Name),
-			Description: fmt.Sprintf("Select a session to view results for %s", currentOrLastEvent.Name),
+			Title:       fmt.Sprintf("F1 Results - %s", previousEvent.Name),
+			Description: fmt.Sprintf("Select a session to view results for %s", previousEvent.Name),
 			Color:       0xFF0000,
 		},
 		Components: components,
@@ -378,12 +368,14 @@ func GetQualifyingResults(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 
 	// Find the event that matches the query
 	var targetEvent *Event
+	raceQueryLower := strings.ToLower(raceQuery)
+	
+	// First try direct matching
 	for _, event := range events {
 		// Check if the query matches the event name, location, or circuit
 		eventNameLower := strings.ToLower(event.Name)
 		eventLocationLower := strings.ToLower(event.Location)
 		eventCircuitLower := strings.ToLower(event.Circuit)
-		raceQueryLower := strings.ToLower(raceQuery)
 		
 		if strings.Contains(eventNameLower, raceQueryLower) ||
 			strings.Contains(eventLocationLower, raceQueryLower) ||
@@ -395,11 +387,11 @@ func GetQualifyingResults(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 		}
 	}
 
-	// Try alternative matching for common names
+	// Try alternative matching for common names if direct matching failed
 	if targetEvent == nil {
 		for _, event := range events {
 			eventNameLower := strings.ToLower(event.Name)
-			raceQueryLower := strings.ToLower(raceQuery)
+			eventCircuitLower := strings.ToLower(event.Circuit)
 			
 			// Handle cases like "spa" matching "Belgian Grand Prix"
 			if (strings.Contains(raceQueryLower, "spa") && strings.Contains(eventNameLower, "belgian")) ||
@@ -408,7 +400,9 @@ func GetQualifyingResults(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 				(strings.Contains(raceQueryLower, "budapest") && strings.Contains(eventNameLower, "hungarian")) ||
 				(strings.Contains(raceQueryLower, "monaco") && strings.Contains(eventNameLower, "monaco")) ||
 				(strings.Contains(raceQueryLower, "silverstone") && strings.Contains(eventNameLower, "british")) ||
-				(strings.Contains(raceQueryLower, "monza") && strings.Contains(eventNameLower, "italian")) {
+				(strings.Contains(raceQueryLower, "monza") && strings.Contains(eventNameLower, "italian")) ||
+				// Additional matching for "spa"
+				(strings.Contains(raceQueryLower, "spa") && strings.Contains(eventCircuitLower, "spa")) {
 				targetEvent = &event
 				break
 			}

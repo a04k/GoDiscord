@@ -132,14 +132,17 @@ func ShowSessionSelection(b *bot.Bot, s *discordgo.Session, m *discordgo.Message
 }
 
 func GetRaceResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate, round int) {
+	log.Printf("GetRaceResults called with round: %d", round)
 	var (
 		apiResponse *RaceResultsResponse
 		err         error
 	)
 
 	if round == 0 {
+		log.Printf("Fetching latest race results")
 		apiResponse, err = FetchLatestRaceResults()
 	} else {
+		log.Printf("Fetching race results for round: %d", round)
 		apiResponse, err = FetchRaceResultsByRound(round)
 	}
 
@@ -149,12 +152,22 @@ func GetRaceResults(b *bot.Bot, s *discordgo.Session, m *discordgo.MessageCreate
 		return
 	}
 
-	if apiResponse == nil || len(apiResponse.MRData.RaceTable.Races) == 0 {
+	log.Printf("API response: %v", apiResponse)
+	if apiResponse == nil {
+		log.Printf("API response is nil")
+		s.ChannelMessageSend(m.ChannelID, "No recent F1 race data available.")
+		return
+	}
+	
+	log.Printf("Number of races in response: %d", len(apiResponse.MRData.RaceTable.Races))
+	if len(apiResponse.MRData.RaceTable.Races) == 0 {
+		log.Printf("No races in response")
 		s.ChannelMessageSend(m.ChannelID, "No recent F1 race data available.")
 		return
 	}
 
 	race := apiResponse.MRData.RaceTable.Races[0]
+	log.Printf("Displaying race results for: %s", race.RaceName)
 	displayRaceResults(s, m.ChannelID, race)
 }
 
